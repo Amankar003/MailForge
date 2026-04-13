@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MailForge — Bulk Email Automation</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#f4f6f9;--surface:#ffffff;--surface2:#f0f2f5;--border:#e1e4e8;
+    --accent:#d32f2f;--accent2:#ff5252;--green:#388e3c;--yellow:#f57c00;
+    --text:#1a1a2e;--muted:#8892a4;
+    --mono:'Roboto Mono',monospace;--sans:'Roboto',sans-serif;--display:'Roboto',sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;}
+  body::before{display:none;}
+
+  /* ── HEADER ── */
+  header{
+    padding:16px 32px;border-bottom:1px solid var(--border);
+    display:flex;align-items:center;gap:16px;
+    background:var(--surface);
+    box-shadow:0 1px 6px rgba(0,0,0,0.06);
+  }
+  .logo{font-family:var(--display);font-size:22px;font-weight:700;letter-spacing:-.5px;color:var(--text);}
+  .logo span{color:var(--accent);}
+  .logo-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .header-right{margin-left:auto;display:flex;gap:12px;align-items:center;}
+  .badge{
+    font-family:var(--mono);font-size:11px;padding:4px 10px;
+    border-radius:4px;background:var(--surface2);
+    border:1px solid var(--border);color:var(--muted);letter-spacing:.5px;
+  }
+
+  /* ── LAYOUT ── */
+  .layout{display:grid;grid-template-columns:260px 1fr;min-height:calc(100vh - 61px);}
+
+  /* ── SIDEBAR ── */
+  .sidebar{
+    background:#1a1f36;
+    border-right:none;
+    padding:24px 0;
+    box-shadow:2px 0 10px rgba(0,0,0,0.1);
+  }
+  .nav-section{padding:0 16px 20px;}
+  .nav-label{
+    font-family:var(--mono);font-size:10px;
+    color:rgba(255,255,255,.3);letter-spacing:2px;
+    text-transform:uppercase;padding:0 8px 8px;
+  }
+  .nav-item{
+    display:flex;align-items:center;gap:10px;padding:10px 12px;
+    border-radius:8px;cursor:pointer;font-size:14px;
+    color:rgba(255,255,255,.55);transition:all .15s;
+    margin-bottom:2px;font-weight:400;
+    border:1px solid transparent;
+  }
+  .nav-item:hover{background:rgba(255,255,255,.08);color:rgba(255,255,255,.9);}
+  .nav-item.active{
+    background:rgba(211,47,47,.2);color:#ff8a80;
+    border-color:rgba(211,47,47,.35);font-weight:500;
+  }
+  .nav-icon{font-size:16px;width:20px;text-align:center;}
+  .nav-count{
+    margin-left:auto;font-family:var(--mono);font-size:11px;
+    background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);
+    border-radius:4px;padding:1px 6px;color:rgba(255,255,255,.4);
+  }
+  .status-panel{
+    margin:16px;border-radius:10px;
+    border:1px solid rgba(255,255,255,.08);
+    background:rgba(255,255,255,.04);padding:14px;
+  }
+  .status-title{
+    font-size:10px;font-family:var(--mono);
+    color:rgba(255,255,255,.3);margin-bottom:10px;
+    letter-spacing:1.5px;text-transform:uppercase;
+  }
+  .stat-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .stat-label{font-size:12px;color:rgba(255,255,255,.35);}
+  .stat-val{font-family:var(--mono);font-size:13px;color:rgba(255,255,255,.75);}
+  .stat-val.green{color:#66bb6a;}
+  .stat-val.red{color:#ff8a80;}
+  .stat-val.yellow{color:#ffb74d;}
+
+  /* ── MAIN ── */
+  main{padding:28px;overflow-y:auto;}
+  .page{display:none;}.page.active{display:block;}
+  h2{
+    font-family:var(--display);font-size:24px;font-weight:700;
+    margin-bottom:6px;color:var(--text);letter-spacing:-.3px;
+  }
+  .subtitle{font-size:13px;color:var(--muted);margin-bottom:24px;font-weight:400;}
+
+  /* ── CARD ── */
+  .card{
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:12px;padding:20px;margin-bottom:18px;
+    box-shadow:0 1px 4px rgba(0,0,0,0.04);
+  }
+  .card-title{
+    font-family:var(--display);font-size:15px;font-weight:600;
+    margin-bottom:14px;display:flex;align-items:center;gap:8px;color:var(--text);
+  }
+  .pill{
+    font-size:10px;font-family:var(--mono);padding:2px 8px;border-radius:20px;
+    background:rgba(211,47,47,.1);color:var(--accent);
+    border:1px solid rgba(211,47,47,.2);letter-spacing:.5px;
+  }
+
+  /* ── FORMS ── */
+  label{
+    font-size:11px;color:var(--muted);font-family:var(--mono);
+    letter-spacing:.8px;text-transform:uppercase;
+    display:block;margin-bottom:6px;margin-top:14px;font-weight:500;
+  }
+  label:first-child{margin-top:0;}
+  input,select,textarea{
+    width:100%;background:var(--bg);border:1px solid var(--border);
+    border-radius:8px;padding:10px 14px;color:var(--text);
+    font-family:var(--sans);font-size:14px;outline:none;
+    transition:border .15s,box-shadow .15s;font-weight:400;
+  }
+  input:focus,select:focus,textarea:focus{
+    border-color:var(--accent);
+    box-shadow:0 0 0 3px rgba(211,47,47,.08);
+  }
+  select option{background:var(--surface);}
+  textarea{resize:vertical;min-height:80px;}
+  .input-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .input-row.three{grid-template-columns:1fr 1fr 1fr;}
+
+  /* ── BUTTONS ── */
+  .btn{
+    padding:10px 20px;border-radius:8px;border:none;cursor:pointer;
+    font-family:var(--display);font-size:14px;font-weight:500;
+    transition:all .15s;display:inline-flex;align-items:center;
+    gap:8px;letter-spacing:.3px;
+  }
+  .btn-primary{background:var(--accent);color:#fff;}
+  .btn-primary:hover{background:#b71c1c;box-shadow:0 4px 14px rgba(211,47,47,.35);}
+  .btn-success{background:var(--green);color:#fff;}
+  .btn-success:hover{background:#2e7d32;box-shadow:0 4px 14px rgba(56,142,60,.3);}
+  .btn-danger{background:#ff5252;color:#fff;}
+  .btn-danger:hover{background:#d32f2f;box-shadow:0 4px 14px rgba(211,47,47,.3);}
+  .btn-ghost{background:var(--surface);color:var(--text);border:1px solid var(--border);}
+  .btn-ghost:hover{border-color:var(--accent);color:var(--accent);background:rgba(211,47,47,.04);}
+  .btn-sm{padding:7px 14px;font-size:12px;}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+
+  /* ── TABLE ── */
+  .table-wrap{overflow-x:auto;border-radius:8px;border:1px solid var(--border);}
+  table{width:100%;border-collapse:collapse;}
+  th{
+    background:var(--surface2);font-family:var(--mono);font-size:11px;
+    letter-spacing:1px;text-transform:uppercase;color:var(--muted);
+    padding:10px 14px;text-align:left;font-weight:500;
+  }
+  td{padding:10px 14px;font-size:13px;border-top:1px solid var(--border);}
+  tr:hover td{background:rgba(211,47,47,.02);}
+
+  /* ── TAGS ── */
+  .tag{display:inline-flex;align-items:center;padding:3px 8px;border-radius:4px;font-size:11px;font-family:var(--mono);font-weight:500;}
+  .tag-green{background:rgba(56,142,60,.1);color:#388e3c;border:1px solid rgba(56,142,60,.2);}
+  .tag-yellow{background:rgba(245,124,0,.1);color:#f57c00;border:1px solid rgba(245,124,0,.2);}
+  .tag-red{background:rgba(211,47,47,.1);color:var(--accent);border:1px solid rgba(211,47,47,.2);}
+  .tag-blue{background:rgba(21,101,192,.08);color:#1565c0;border:1px solid rgba(21,101,192,.15);}
+  .tag-gray{background:var(--surface2);color:var(--muted);border:1px solid var(--border);}
+
+  /* ── PROGRESS ── */
+  .progress-bar{background:var(--surface2);border-radius:99px;height:6px;overflow:hidden;margin:8px 0;}
+  .progress-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent),#ff8a80);transition:width .5s ease;}
+
+  /* ── TOGGLES ── */
+  .toggle-row{display:flex;align-items:center;justify-content:space-between;margin:12px 0;}
+  .toggle-label{font-size:14px;font-weight:500;}
+  .toggle-sub{font-size:12px;color:var(--muted);margin-top:2px;}
+  .toggle{position:relative;width:42px;height:22px;flex-shrink:0;}
+  .toggle input{opacity:0;width:0;height:0;}
+  .toggle-slider{position:absolute;inset:0;border-radius:99px;background:var(--border);cursor:pointer;transition:.2s;}
+  .toggle-slider::before{
+    content:'';position:absolute;width:16px;height:16px;
+    left:3px;top:3px;border-radius:50%;background:#fff;
+    transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2);
+  }
+  .toggle input:checked+.toggle-slider{background:var(--accent);}
+  .toggle input:checked+.toggle-slider::before{transform:translateX(20px);}
+
+  /* ── LOG BOX ── */
+  .log-box{
+    background:#1a1f36;border:1px solid rgba(255,255,255,.07);
+    border-radius:8px;font-family:var(--mono);font-size:12px;
+    padding:14px;height:220px;overflow-y:auto;line-height:1.7;
+  }
+  .log-info{color:rgba(255,255,255,.35);}
+  .log-success{color:#66bb6a;}
+  .log-warn{color:#ffb74d;}
+  .log-error{color:#ff8a80;}
+  .log-send{color:#90caf9;}
+
+  /* ── RANGE SLIDER ── */
+  input[type=range]{
+    -webkit-appearance:none;height:4px;border-radius:99px;
+    background:linear-gradient(90deg,var(--accent) var(--val,30%),var(--border) var(--val,30%));
+    padding:0;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:16px;height:16px;border-radius:50%;
+    background:var(--accent);cursor:pointer;
+    border:2px solid #fff;box-shadow:0 2px 6px rgba(211,47,47,.4);
+  }
+
+  /* ── RUNNING INDICATOR ── */
+  .running-indicator{
+    display:none;align-items:center;gap:10px;padding:12px 18px;
+    border-radius:10px;background:rgba(56,142,60,.06);
+    border:1px solid rgba(56,142,60,.2);margin-bottom:18px;
+  }
+  .running-indicator.show{display:flex;}
+  .spinner{
+    width:18px;height:18px;border:2px solid rgba(56,142,60,.3);
+    border-top-color:var(--green);border-radius:50%;
+    animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ── GRID ── */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;}
+
+  /* ── MINI STAT CARDS ── */
+  .mini-stat{
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:12px;padding:20px;
+    box-shadow:0 1px 4px rgba(0,0,0,.04);
+    position:relative;overflow:hidden;
+  }
+  .mini-stat::before{
+    content:'';position:absolute;top:0;left:0;right:0;height:3px;
+    background:linear-gradient(90deg,var(--accent),rgba(211,47,47,.3));
+  }
+  .mini-stat-val{font-family:var(--display);font-size:28px;font-weight:700;margin-bottom:4px;}
+  .mini-stat-label{font-size:12px;color:var(--muted);font-weight:400;letter-spacing:.3px;}
+
+  /* ── MISC ── */
+  .empty{text-align:center;padding:40px;color:var(--muted);font-size:14px;}
+  .empty-icon{font-size:36px;margin-bottom:12px;}
+  hr{border:none;border-top:1px solid var(--border);margin:18px 0;}
+  .flex{display:flex;}.gap-2{gap:8px;}.gap-3{gap:12px;}.ml-auto{margin-left:auto;}
+  .mt-2{margin-top:8px;}.mt-3{margin-top:12px;}
+  .items-center{align-items:center;}.justify-between{justify-content:space-between;}
+  code{
+    font-family:var(--mono);font-size:12px;
+    background:rgba(211,47,47,.07);color:#c62828;
+    padding:2px 6px;border-radius:4px;
+    border:1px solid rgba(211,47,47,.12);
+  }
+
+  /* ── TOAST ── */
+  #toast{
+    position:fixed;bottom:24px;right:24px;padding:12px 20px;
+    border-radius:10px;font-size:13px;font-family:var(--mono);
+    z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;
+    box-shadow:0 4px 18px rgba(0,0,0,.12);
+  }
+  #toast.show{opacity:1;}
+  #toast.ok{background:rgba(56,142,60,.1);border:1px solid var(--green);color:var(--green);}
+  #toast.err{background:rgba(211,47,47,.1);border:1px solid var(--accent);color:var(--accent);}
+  #toast.info{background:rgba(211,47,47,.07);border:1px solid rgba(211,47,47,.3);color:var(--accent);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-dot"></div>
+  <div class="logo">Mail<span>Forge</span></div>
+  <div class="badge">v1.0</div>
+  <div id="backendBadge" class="badge" style="cursor:pointer" onclick="checkBackend()" title="Click to re-check">⬤ Checking...</div>
+  <div class="header-right">
+    <div class="badge" id="headerStatus">⬤ IDLE</div>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="nav-section">
+      <div class="nav-label">Workspace</div>
+      <div class="nav-item active" onclick="showPage('dashboard',this)"><span class="nav-icon">⚡</span> Dashboard</div>
+      <div class="nav-item" onclick="showPage('senders',this)"><span class="nav-icon">👤</span> Senders <span class="nav-count" id="senderCount">0</span></div>
+      <div class="nav-item" onclick="showPage('content',this)"><span class="nav-icon">✉️</span> Email Queue <span class="nav-count" id="contentCount">0</span></div>
+      <div class="nav-item" onclick="showPage('campaign',this)"><span class="nav-icon">🚀</span> Campaign</div>
+      <div class="nav-item" onclick="showPage('logs',this)"><span class="nav-icon">📋</span> Activity Log</div>
+      <div class="nav-item" onclick="showPage('settings',this)"><span class="nav-icon">⚙️</span> Settings</div>
+    </div>
+    <div class="status-panel">
+      <div class="status-title">Session Stats</div>
+      <div class="stat-row"><span class="stat-label">Sent</span><span class="stat-val green" id="statSent">0</span></div>
+      <div class="stat-row"><span class="stat-label">Failed</span><span class="stat-val red" id="statFailed">0</span></div>
+      <div class="stat-row"><span class="stat-label">Skipped</span><span class="stat-val yellow" id="statSkipped">0</span></div>
+      <div class="stat-row"><span class="stat-label">Pending</span><span class="stat-val" id="statQueue">—</span></div>
+      <hr style="margin:10px 0">
+      <div class="stat-row"><span class="stat-label">Senders</span><span class="stat-val" id="statSenders">0</span></div>
+      <div class="stat-row"><span class="stat-label">In Queue</span><span class="stat-val" id="statTemplates">0</span></div>
+    </div>
+  </aside>
+
+  <main>
+    <!-- DASHBOARD -->
+    <div id="page-dashboard" class="page active">
+      <h2>Dashboard</h2>
+      <p class="subtitle">Bulk email automation — real SMTP sending via Gmail App Passwords</p>
+      <div class="grid3" style="margin-bottom:18px">
+        <div class="mini-stat"><div class="mini-stat-val" id="dashSent" style="color:var(--green)">0</div><div class="mini-stat-label">Emails Sent</div></div>
+        <div class="mini-stat"><div class="mini-stat-val" id="dashSenders" style="color:var(--accent)">0</div><div class="mini-stat-label">Sender Accounts</div></div>
+        <div class="mini-stat"><div class="mini-stat-val" id="dashTemplates" style="color:var(--yellow)">0</div><div class="mini-stat-label">Emails in Queue</div></div>
+      </div>
+      <div class="running-indicator" id="runningIndicator">
+        <div class="spinner"></div>
+        <div><strong>Campaign Running</strong><div style="font-size:12px;color:var(--muted);margin-top:2px" id="runningDetail">Processing...</div></div>
+        <button class="btn btn-danger btn-sm ml-auto" onclick="stopCampaign()">Stop</button>
+      </div>
+      <div class="card">
+        <div class="card-title">📊 Progress <span class="pill" id="progressPill">IDLE</span></div>
+        <div id="progressLabel" style="font-size:13px;color:var(--muted);margin-bottom:8px">No campaign running</div>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+        <div style="font-size:11px;font-family:var(--mono);color:var(--muted);margin-top:6px" id="progressNumbers">0 / 0</div>
+      </div>
+      <div class="grid2">
+        <div class="card">
+          <div class="card-title">🛡️ Anti-Spam Features</div>
+          <div class="toggle-row"><div><div class="toggle-label" style="font-size:13px">Random Sender Rotation</div><div class="toggle-sub">Different account per email</div></div><span class="tag tag-green">ON</span></div>
+          <div class="toggle-row"><div><div class="toggle-label" style="font-size:13px">Personalization Tokens</div><div class="toggle-sub">{name} {email} {date} {sender}</div></div><span class="tag tag-green">ON</span></div>
+          <div class="toggle-row"><div><div class="toggle-label" style="font-size:13px">Delay Jitter ±20%</div><div class="toggle-sub">Randomised human-like timing</div></div><span class="tag tag-green" id="jitterBadge">ON</span></div>
+          <div class="toggle-row"><div><div class="toggle-label" style="font-size:13px">Per-Sender Daily Caps</div><div class="toggle-sub">Stays within Gmail limits</div></div><span class="tag tag-green">ON</span></div>
+        </div>
+        <div class="card">
+          <div class="card-title">⚡ Quick Start</div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:14px">3 steps to launch</p>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div class="btn btn-ghost btn-sm" onclick="showPage('senders')" style="justify-content:flex-start">① Add Sender Accounts →</div>
+            <div class="btn btn-ghost btn-sm" onclick="showPage('content')" style="justify-content:flex-start">② Build Email Queue →</div>
+            <div class="btn btn-primary btn-sm" onclick="showPage('campaign')" style="justify-content:flex-start">③ Launch Campaign →</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SENDERS -->
+    <div id="page-senders" class="page">
+      <h2>Sender Accounts</h2>
+      <p class="subtitle">Gmail accounts that send emails. Use Google App Passwords — NOT your main Gmail password.</p>
+      <div class="card">
+        <div class="card-title">📥 Import from Google Sheet</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:12px">
+          In Google Sheets: <strong>File → Share → Publish to web → Comma-separated values (CSV)</strong><br>
+          <strong>Required columns:</strong> <code>email | password | name (opt) | daily_limit (opt)</code>
+        </p>
+        <label>PUBLISHED CSV URL</label>
+        <div class="flex gap-2">
+          <input type="text" id="sheetUrl1" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv" />
+          <button class="btn btn-primary" style="white-space:nowrap" onclick="loadSendersFromSheet()">📥 Load</button>
+        </div>
+        <hr>
+        <div class="input-row three">
+          <div><label>EMAIL ADDRESS</label><input type="email" id="newSenderEmail" placeholder="sender@gmail.com" /></div>
+          <div><label>GOOGLE APP PASSWORD</label><input type="password" id="newSenderPass" placeholder="xxxx xxxx xxxx xxxx" /></div>
+          <div><label>DISPLAY NAME (optional)</label><input type="text" id="newSenderName" placeholder="John Doe" /></div>
+        </div>
+        <div class="input-row mt-2">
+          <div><label>DAILY SEND LIMIT</label><input type="number" id="newSenderLimit" value="100" min="1" max="500" /></div>
+          <div style="display:flex;align-items:flex-end;gap:8px">
+            <button class="btn btn-ghost" onclick="verifySenderForm()" style="flex:1">🔍 Verify SMTP</button>
+            <button class="btn btn-success" onclick="addSender()" style="flex:1">+ Add</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="flex items-center justify-between" style="margin-bottom:14px">
+          <div class="card-title" style="margin:0">👤 Accounts <span class="pill" id="senderPill">0</span></div>
+          <div class="flex gap-2">
+            <button class="btn btn-ghost btn-sm" onclick="verifyAllSenders()">🔍 Verify All</button>
+            <button class="btn btn-ghost btn-sm" onclick="clearSenders()">Clear All</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Email</th><th>Name</th><th>Daily Limit</th><th>Sent Today</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody id="senderTableBody"><tr><td colspan="6" class="empty"><div class="empty-icon">📭</div>No senders added</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div id="page-content" class="page">
+      <h2>Email Queue</h2>
+      <p class="subtitle">Recipients and email content. Personalization tokens: <code>{name}</code> <code>{email}</code> <code>{date}</code> <code>{sender}</code></p>
+      <div class="card">
+        <div class="card-title">📥 Import from Google Sheet</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:12px">
+          <strong>Required columns:</strong> <code>to_email | subject | body | cc (opt) | reply_to (opt)</code>
+        </p>
+        <label>PUBLISHED CSV URL</label>
+        <div class="flex gap-2">
+          <input type="text" id="sheetUrl2" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv" />
+          <button class="btn btn-primary" style="white-space:nowrap" onclick="loadContentFromSheet()">📥 Load</button>
+        </div>
+        <hr>
+        <div class="input-row">
+          <div><label>RECIPIENT EMAIL</label><input type="email" id="newToEmail" placeholder="recipient@example.com" /></div>
+          <div><label>SUBJECT</label><input type="text" id="newSubject" placeholder="Hello {name}!" /></div>
+        </div>
+        <label>BODY</label>
+        <textarea id="newBody" placeholder="Hi {name}, reaching out regarding...&#10;&#10;Use {name}, {email}, {date}, {sender} as personalization tokens."></textarea>
+        <div class="input-row mt-2">
+          <div><label>CC (optional)</label><input type="text" id="newCC" placeholder="cc@example.com" /></div>
+          <div><label>REPLY-TO (optional)</label><input type="text" id="newReplyTo" placeholder="reply@example.com" /></div>
+        </div>
+        <button class="btn btn-success mt-3" onclick="addContent()">+ Add to Queue</button>
+      </div>
+      <div class="card">
+        <div class="flex items-center justify-between" style="margin-bottom:14px">
+          <div class="card-title" style="margin:0">✉️ Queue <span class="pill" id="contentPill">0</span></div>
+          <div class="flex gap-2">
+            <button class="btn btn-ghost btn-sm" onclick="resetQueue()">↺ Reset Statuses</button>
+            <button class="btn btn-ghost btn-sm" onclick="clearContent()">Clear All</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>To</th><th>Subject</th><th>Body Preview</th><th>Sent By</th><th>Status</th><th></th></tr></thead>
+            <tbody id="contentTableBody"><tr><td colspan="6" class="empty"><div class="empty-icon">📄</div>No emails in queue</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- CAMPAIGN -->
+    <div id="page-campaign" class="page">
+      <h2>Launch Campaign</h2>
+      <p class="subtitle">Configure timing and anti-spam settings, then start sending.</p>
+      <div class="running-indicator" id="runningIndicator2">
+        <div class="spinner"></div>
+        <div><strong style="color:var(--green)">Campaign Running</strong><div style="font-size:12px;color:var(--muted);margin-top:2px" id="runningDetail2">Processing queue...</div></div>
+        <button class="btn btn-danger btn-sm ml-auto" onclick="stopCampaign()">⏹ Stop</button>
+      </div>
+      <div class="grid2">
+        <div class="card">
+          <div class="card-title">⏱ Timing</div>
+          <label>DELAY BETWEEN EMAILS (seconds)</label>
+          <input type="range" id="delaySlider" min="5" max="300" value="30" oninput="updateDelay(this.value)" />
+          <div style="font-family:var(--mono);font-size:13px;color:var(--accent);margin-top:4px" id="delayDisplay">30s</div>
+          <div class="input-row mt-2">
+            <div><label>BATCH SIZE</label><input type="number" id="batchSize" value="5" min="1" max="100" /></div>
+            <div><label>BATCH PAUSE (sec)</label><input type="number" id="batchPause" value="120" min="10" /></div>
+          </div>
+          <div class="toggle-row mt-2">
+            <div><div class="toggle-label">Delay Jitter ±20%</div><div class="toggle-sub">Human-like timing variance</div></div>
+            <label class="toggle"><input type="checkbox" id="jitterToggle" checked onchange="updateJitterBadge()"><span class="toggle-slider"></span></label>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">🛡️ Anti-Spam</div>
+          <div class="toggle-row">
+            <div><div class="toggle-label">Rotate Senders Randomly</div><div class="toggle-sub">Random account per email</div></div>
+            <label class="toggle"><input type="checkbox" id="rotateSenders" checked><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div><div class="toggle-label">Skip Duplicate Recipients</div><div class="toggle-sub">Only send once per address</div></div>
+            <label class="toggle"><input type="checkbox" id="skipDupes" checked><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div><div class="toggle-label">Respect Daily Limits</div><div class="toggle-sub">Enforce per-sender caps</div></div>
+            <label class="toggle"><input type="checkbox" id="respectLimits" checked><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div><div class="toggle-label">Stop on High Failure Rate</div><div class="toggle-sub">Pause if >40% fail in last 10</div></div>
+            <label class="toggle"><input type="checkbox" id="stopOnFail" checked><span class="toggle-slider"></span></label>
+          </div>
+          <label>GLOBAL DAILY LIMIT PER SENDER</label>
+          <input type="number" id="globalDailyLimit" value="100" min="1" max="500" />
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">🚀 Campaign Control</div>
+        <div class="flex items-center gap-3 mt-2">
+          <div style="flex:1">
+            <div style="font-size:12px;color:var(--muted);font-family:var(--mono)">READY</div>
+            <div style="font-family:var(--mono);font-size:13px;margin-top:4px" id="campaignSummary">—</div>
+          </div>
+          <button class="btn btn-primary" id="startBtn" onclick="startCampaign()" style="font-size:15px;padding:12px 28px">🚀 Start</button>
+          <button class="btn btn-danger" id="stopBtn" onclick="stopCampaign()" disabled>⏹ Stop</button>
+          <button class="btn btn-ghost" onclick="resetCampaign()">↺ Reset</button>
+        </div>
+        <hr>
+        <div class="progress-bar" style="height:10px"><div class="progress-fill" id="campaignProgress" style="width:0%"></div></div>
+        <div style="font-size:12px;font-family:var(--mono);color:var(--muted);margin-top:6px" id="campaignProgressLabel">0 / 0 — Idle</div>
+      </div>
+      <div class="card">
+        <div class="card-title">📋 Live Log</div>
+        <div class="log-box" id="campaignLog"><span class="log-info">// Waiting to start...</span></div>
+      </div>
+    </div>
+
+    <!-- LOGS -->
+    <div id="page-logs" class="page">
+      <h2>Activity Log</h2>
+      <p class="subtitle">Full send history for this session</p>
+      <div class="card">
+        <div class="flex items-center justify-between" style="margin-bottom:14px">
+          <div class="card-title" style="margin:0">📋 History</div>
+          <div class="flex gap-2">
+            <button class="btn btn-ghost btn-sm" onclick="exportLog()">Export CSV</button>
+            <button class="btn btn-ghost btn-sm" onclick="clearLog()">Clear</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Time</th><th>From</th><th>To</th><th>Subject</th><th>Status</th><th>Detail</th></tr></thead>
+            <tbody id="logTableBody"><tr><td colspan="6" class="empty"><div class="empty-icon">📋</div>No activity yet</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="page-settings" class="page">
+      <h2>Settings</h2>
+      <p class="subtitle">Backend connection, SMTP defaults, and data management</p>
+      <div class="card">
+        <div class="card-title">🖥️ Backend Connection</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:12px">The Node.js backend must be running locally. Start it with <code>node server.js</code></p>
+        <div class="input-row">
+          <div><label>BACKEND URL</label><input type="text" id="backendUrl" value="http://localhost:3001" /></div>
+          <div style="display:flex;align-items:flex-end"><button class="btn btn-primary" style="width:100%" onclick="checkBackend()">🔍 Test Connection</button></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">📡 SMTP Defaults</div>
+        <div class="input-row">
+          <div><label>SMTP HOST</label><input type="text" id="smtpHost" value="smtp.gmail.com" /></div>
+          <div><label>SMTP PORT</label>
+            <select id="smtpPort">
+              <option value="587" selected>587 — TLS (Recommended for Gmail)</option>
+              <option value="465">465 — SSL</option>
+            </select>
+          </div>
+        </div>
+        <div class="toggle-row mt-2">
+          <div><div class="toggle-label">Add List-Unsubscribe Header</div><div class="toggle-sub">Improves deliverability and compliance</div></div>
+          <label class="toggle"><input type="checkbox" id="unsubHeader" checked><span class="toggle-slider"></span></label>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">💾 Data Management</div>
+        <div class="flex gap-2 mt-2">
+          <button class="btn btn-ghost btn-sm" onclick="exportSenders()">Export Senders CSV</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportQueue()">Export Queue CSV</button>
+          <button class="btn btn-danger btn-sm" onclick="clearAll()">🗑 Clear All Data</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">📖 Setup Guide</div>
+        <div style="font-size:13px;color:var(--muted);line-height:2">
+          <strong style="color:var(--text)">1. Install dependencies:</strong><br>
+          <code>npm install</code><br><br>
+          <strong style="color:var(--text)">2. Start the backend:</strong><br>
+          <code>node server.js</code><br><br>
+          <strong style="color:var(--text)">3. Create a Gmail App Password:</strong><br>
+          Enable 2FA at <code>myaccount.google.com</code>, then go to <code>myaccount.google.com/apppasswords</code> and generate an App Password for "Mail".<br><br>
+          <strong style="color:var(--text)">4. Google Sheet column formats:</strong><br>
+          Senders sheet: <code>email, password, name, daily_limit</code><br>
+          Queue sheet: <code>to_email, subject, body, cc, reply_to</code><br><br>
+          <strong style="color:var(--text)">5. Publish sheet as CSV:</strong><br>
+          File → Share → Publish to web → Select sheet → CSV → Publish. Use that URL in the import fields.
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════
+let senders = [];
+let emailQueue = [];
+let activityLog = [];
+let campaignRunning = false;
+let campaignTimer = null;
+let stats = { sent:0, failed:0, skipped:0 };
+let sentTo = new Set();
+let batchCount = 0;
+
+function getBackendUrl() { return document.getElementById('backendUrl').value.replace(/\/$/, '') || 'http://localhost:3001'; }
+
+// ════════════════════════════════════════════
+// NAV
+// ════════════════════════════════════════════
+function showPage(id, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  if (el) el.classList.add('active');
+  updateCampaignSummary();
+}
+
+// ════════════════════════════════════════════
+// API HELPER
+// ════════════════════════════════════════════
+async function api(path, data) {
+  try {
+    const res = await fetch(getBackendUrl() + path, {
+      method: data !== undefined ? 'POST' : 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      body: data !== undefined ? JSON.stringify(data) : undefined,
+    });
+    return await res.json();
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// ════════════════════════════════════════════
+// BACKEND CHECK
+// ════════════════════════════════════════════
+async function checkBackend() {
+  const badge = document.getElementById('backendBadge');
+  badge.textContent = '⬤ Checking...';
+  badge.style.color = '';
+  const r = await api('/api/health');
+  if (r.ok) {
+    badge.textContent = '⬤ Backend Online';
+    badge.style.color = 'var(--green)';
+    toast('Backend connected!', 'ok');
+    syncDailyCounts();
+  } else {
+    badge.textContent = '⬤ Backend Offline';
+    badge.style.color = 'var(--accent2)';
+    toast('Backend offline — run: node server.js', 'err');
+  }
+}
+
+async function syncDailyCounts() {
+  if (!senders.length) return;
+  const r = await api('/api/daily-counts', { emails: senders.map(s => s.email) });
+  if (r && !r.error) { senders.forEach(s => { if (r[s.email] !== undefined) s.sentToday = r[s.email]; }); renderSenders(); }
+}
+
+// ════════════════════════════════════════════
+// SENDERS
+// ════════════════════════════════════════════
+function addSender() {
+  const e = document.getElementById('newSenderEmail').value.trim();
+  const p = document.getElementById('newSenderPass').value.trim();
+  const n = document.getElementById('newSenderName').value.trim();
+  const l = parseInt(document.getElementById('newSenderLimit').value) || 100;
+  if (!e || !p) { toast('Email and password required', 'err'); return; }
+  if (senders.find(s => s.email === e)) { toast('Already added', 'err'); return; }
+  senders.push({ email:e, password:p, name:n||e.split('@')[0], dailyLimit:l, sentToday:0, status:'unverified' });
+  document.getElementById('newSenderEmail').value = '';
+  document.getElementById('newSenderPass').value = '';
+  document.getElementById('newSenderName').value = '';
+  renderSenders(); updateStats();
+  toast('Sender added', 'info');
+}
+
+async function verifySenderForm() {
+  const e = document.getElementById('newSenderEmail').value.trim();
+  const p = document.getElementById('newSenderPass').value.trim();
+  if (!e || !p) { toast('Fill email and password first', 'err'); return; }
+  toast(`Verifying ${e}...`, 'info');
+  const r = await api('/api/verify-sender', {
+    email: e, password: p,
+    host: document.getElementById('smtpHost').value,
+    port: document.getElementById('smtpPort').value
+  });
+  r.ok ? toast(`✅ ${e} verified!`, 'ok') : toast(`❌ ${r.error}`, 'err');
+}
+
+async function verifySender(idx) {
+  const s = senders[idx];
+  s.status = 'checking'; renderSenders();
+  const r = await api('/api/verify-sender', {
+    email: s.email, password: s.password,
+    host: document.getElementById('smtpHost').value,
+    port: document.getElementById('smtpPort').value
+  });
+  s.status = r.ok ? 'ready' : 'error';
+  renderSenders();
+  toast(r.ok ? `✅ ${s.email} verified` : `❌ ${s.email}: ${r.error}`, r.ok ? 'ok' : 'err');
+}
+
+async function verifyAllSenders() {
+  for (let i = 0; i < senders.length; i++) { await verifySender(i); await sleep(600); }
+}
+
+function removeSender(idx) { senders.splice(idx,1); renderSenders(); updateStats(); }
+function clearSenders() { if(confirm('Clear all senders?')){ senders=[]; renderSenders(); updateStats(); } }
+
+function renderSenders() {
+  const tbody = document.getElementById('senderTableBody');
+  if (!senders.length) { tbody.innerHTML='<tr><td colspan="6" class="empty"><div class="empty-icon">📭</div>No senders added</td></tr>'; return; }
+  tbody.innerHTML = senders.map((s,i) => `
+    <tr>
+      <td style="font-family:var(--mono);font-size:12px">${s.email}</td>
+      <td>${s.name}</td>
+      <td style="font-family:var(--mono)">${s.dailyLimit}</td>
+      <td style="font-family:var(--mono);color:${s.sentToday>=s.dailyLimit?'var(--accent2)':'var(--green)'}">${s.sentToday}</td>
+      <td><span class="tag ${s.status==='ready'?'tag-green':s.status==='error'?'tag-red':s.status==='checking'?'tag-yellow':'tag-gray'}">${s.sentToday>=s.dailyLimit?'LIMIT HIT':s.status.toUpperCase()}</span></td>
+      <td><div class="flex gap-2">
+        <button class="btn btn-ghost btn-sm" onclick="verifySender(${i})">Verify</button>
+        <button class="btn btn-ghost btn-sm" onclick="removeSender(${i})">✕</button>
+      </div></td>
+    </tr>`).join('');
+  document.getElementById('senderCount').textContent = senders.length;
+  document.getElementById('senderPill').textContent = senders.length;
+}
+
+async function loadSendersFromSheet() {
+  const url = document.getElementById('sheetUrl1').value.trim();
+  if (!url) { toast('Enter a CSV URL', 'err'); return; }
+  toast('Fetching sheet...', 'info');
+  const csv = await fetchSheetCSV(url);
+  if (!csv) return;
+  let added = 0;
+  csv.trim().split('\n').forEach((row,i) => {
+    if (i===0 && row.toLowerCase().includes('email')) return;
+    const [email,pass,name,limit] = parseCSVRow(row).map(c=>c.trim());
+    if (email && email.includes('@') && pass && !senders.find(s=>s.email===email)) {
+      senders.push({ email, password:pass, name:name||email.split('@')[0], dailyLimit:parseInt(limit)||100, sentToday:0, status:'unverified' });
+      added++;
+    }
+  });
+  renderSenders(); updateStats();
+  toast(`Loaded ${added} senders`, 'ok');
+}
+
+// ════════════════════════════════════════════
+// EMAIL QUEUE
+// ════════════════════════════════════════════
+function addContent() {
+  const t = document.getElementById('newToEmail').value.trim();
+  const s = document.getElementById('newSubject').value.trim();
+  const b = document.getElementById('newBody').value.trim();
+  const c = document.getElementById('newCC').value.trim();
+  const r = document.getElementById('newReplyTo').value.trim();
+  if (!t||!s||!b) { toast('To, Subject, Body required', 'err'); return; }
+  emailQueue.push({ to:t, subject:s, body:b, cc:c, replyTo:r, status:'pending', sentBy:'', sentAt:'' });
+  document.getElementById('newToEmail').value = '';
+  document.getElementById('newSubject').value = '';
+  document.getElementById('newBody').value = '';
+  renderContent(); updateStats();
+  toast(`Added: ${t}`, 'info');
+}
+
+function removeContent(idx) { emailQueue.splice(idx,1); renderContent(); updateStats(); }
+function clearContent() { if(confirm('Clear queue?')){ emailQueue=[]; renderContent(); updateStats(); sentTo=new Set(); } }
+function resetQueue() {
+  emailQueue.forEach(e=>e.status='pending');
+  sentTo=new Set(); stats={sent:0,failed:0,skipped:0};
+  renderContent(); updateStats(); updateProgress();
+  toast('Queue reset','info');
+}
+
+function renderContent() {
+  const tbody = document.getElementById('contentTableBody');
+  if (!emailQueue.length) { tbody.innerHTML='<tr><td colspan="6" class="empty"><div class="empty-icon">📄</div>No emails in queue</td></tr>'; return; }
+  tbody.innerHTML = emailQueue.map((e,i) => `
+    <tr>
+      <td style="font-family:var(--mono);font-size:12px">${e.to}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.subject}</td>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:12px">${e.body.substring(0,55)}...</td>
+      <td style="font-size:12px;font-family:var(--mono);color:var(--muted)">${e.sentBy||'—'}</td>
+      <td><span class="tag ${e.status==='sent'?'tag-green':e.status==='failed'?'tag-red':e.status==='skipped'?'tag-yellow':'tag-blue'}">${e.status.toUpperCase()}</span></td>
+      <td><button class="btn btn-ghost btn-sm" onclick="removeContent(${i})">✕</button></td>
+    </tr>`).join('');
+  document.getElementById('contentCount').textContent = emailQueue.length;
+  document.getElementById('contentPill').textContent = emailQueue.length;
+}
+
+async function loadContentFromSheet() {
+  const url = document.getElementById('sheetUrl2').value.trim();
+  if (!url) { toast('Enter a CSV URL', 'err'); return; }
+  toast('Fetching sheet...', 'info');
+  const csv = await fetchSheetCSV(url);
+  if (!csv) return;
+  let added = 0;
+  csv.trim().split('\n').forEach((row,i) => {
+    if (i===0 && row.toLowerCase().includes('email')) return;
+    const [to,subject,body,cc,replyTo] = parseCSVRow(row).map(c=>c.trim());
+    if (to && to.includes('@') && subject && body) {
+      emailQueue.push({ to, subject, body, cc:cc||'', replyTo:replyTo||'', status:'pending', sentBy:'', sentAt:'' });
+      added++;
+    }
+  });
+  renderContent(); updateStats();
+  toast(`Loaded ${added} emails`, 'ok');
+}
+
+// ════════════════════════════════════════════
+// CAMPAIGN ENGINE
+// ════════════════════════════════════════════
+function updateDelay(val) {
+  const pct = ((val-5)/(300-5))*100;
+  document.getElementById('delaySlider').style.setProperty('--val', pct+'%');
+  document.getElementById('delayDisplay').textContent = val + 's';
+}
+function updateJitterBadge() {
+  const on = document.getElementById('jitterToggle').checked;
+  document.getElementById('jitterBadge').textContent = on?'ON':'OFF';
+  document.getElementById('jitterBadge').className = 'tag '+(on?'tag-green':'tag-yellow');
+}
+function updateCampaignSummary() {
+  const pending = emailQueue.filter(e=>e.status==='pending').length;
+  const lim = parseInt(document.getElementById('globalDailyLimit')?.value)||100;
+  const avail = senders.filter(s=>s.status!=='error'&&s.sentToday<Math.min(s.dailyLimit,lim)).length;
+  document.getElementById('campaignSummary').textContent = `${pending} pending · ${avail}/${senders.length} senders available`;
+}
+function getAvailableSenders() {
+  const lim = parseInt(document.getElementById('globalDailyLimit').value)||100;
+  const respect = document.getElementById('respectLimits').checked;
+  return senders.filter(s => s.status!=='error' && (!respect || s.sentToday < Math.min(s.dailyLimit, lim)));
+}
+function pickSender() {
+  const avail = getAvailableSenders();
+  if (!avail.length) return null;
+  return document.getElementById('rotateSenders').checked ? avail[Math.floor(Math.random()*avail.length)] : avail[0];
+}
+function personalize(text, item, sender) {
+  return text
+    .replace(/{name}/gi, item.to.split('@')[0])
+    .replace(/{email}/gi, item.to)
+    .replace(/{sender}/gi, sender.name||sender.email)
+    .replace(/{date}/gi, new Date().toLocaleDateString());
+}
+
+async function startCampaign() {
+  if (campaignRunning) return;
+  if (!senders.length) { toast('Add at least one sender!', 'err'); return; }
+  if (!emailQueue.filter(e=>e.status==='pending').length) { toast('No pending emails!', 'err'); return; }
+  if (!getAvailableSenders().length) { toast('No available senders', 'err'); return; }
+
+  campaignRunning = true;
+  batchCount = 0;
+  document.getElementById('startBtn').disabled = true;
+  document.getElementById('stopBtn').disabled = false;
+  document.getElementById('headerStatus').textContent = '⬤ RUNNING';
+  document.getElementById('headerStatus').style.color = 'var(--green)';
+  ['runningIndicator','runningIndicator2'].forEach(id => document.getElementById(id).classList.add('show'));
+  document.getElementById('progressPill').textContent = 'RUNNING';
+  document.getElementById('campaignLog').innerHTML = '';
+  logC('info', `🚀 Campaign started — ${emailQueue.filter(e=>e.status==='pending').length} emails · ${senders.length} senders`);
+  await processNext();
+}
+
+async function processNext() {
+  if (!campaignRunning) return;
+  const pending = emailQueue.filter(e=>e.status==='pending');
+  if (!pending.length) { finishCampaign(); return; }
+
+  // Failure rate check
+  if (document.getElementById('stopOnFail').checked) {
+    const recent = activityLog.slice(-10);
+    const fails = recent.filter(l=>l.status==='failed').length;
+    if (recent.length>=5 && fails/recent.length>0.4) { logC('error','⚠️ High failure rate — stopping'); stopCampaign(); return; }
+  }
+
+  const item = pending[0];
+  // Dedup
+  if (document.getElementById('skipDupes').checked && sentTo.has(item.to)) {
+    item.status='skipped'; stats.skipped++;
+    logC('warn', `⏭ Skipped duplicate: ${item.to}`);
+    renderContent(); updateStats(); updateProgress();
+    await processNext(); return;
+  }
+
+  const sender = pickSender();
+  if (!sender) { logC('warn','⚠️ No available senders — stopping'); stopCampaign(); return; }
+
+  const subject = personalize(item.subject, item, sender);
+  const body = personalize(item.body, item, sender);
+  logC('send', `📧 → ${item.to} via ${sender.email}`);
+
+  const result = await api('/api/send', {
+    from_email: sender.email,
+    from_password: sender.password,
+    from_name: sender.name,
+    to: item.to,
+    subject, body,
+    cc: item.cc || undefined,
+    reply_to: item.replyTo || undefined,
+    daily_limit: Math.min(sender.dailyLimit, parseInt(document.getElementById('globalDailyLimit').value)||100),
+    smtp_host: document.getElementById('smtpHost').value,
+    smtp_port: document.getElementById('smtpPort').value,
+    unsubscribe_header: document.getElementById('unsubHeader').checked,
+  });
+
+  if (result.ok) {
+    item.status='sent'; item.sentBy=sender.email; item.sentAt=new Date().toLocaleTimeString();
+    sender.sentToday = result.sentToday ?? (sender.sentToday+1);
+    stats.sent++; sentTo.add(item.to);
+    logC('success', `✅ Sent → ${item.to}`);
+    addLogEntry('success', result.messageId||'', item.subject, sender.email, item.to);
+  } else {
+    item.status='failed'; stats.failed++;
+    if (result.limitReached) { logC('warn', `⏭ Daily limit reached for ${sender.email}`); }
+    else if (result.isAuthError) { sender.status='error'; logC('error', `🔒 Auth failed for ${sender.email}`); }
+    logC('error', `❌ Failed → ${item.to}: ${result.error}`);
+    addLogEntry('failed', result.error||'', item.subject, sender.email, item.to);
+  }
+
+  renderContent(); renderSenders(); updateStats(); updateProgress();
+
+  batchCount++;
+  const batchSize = parseInt(document.getElementById('batchSize').value)||5;
+  if (batchCount >= batchSize) {
+    batchCount = 0;
+    const pause = parseInt(document.getElementById('batchPause').value)||120;
+    logC('info', `⏸ Batch done — pausing ${pause}s`);
+    setDetail(`Batch pause: ${pause}s`);
+    campaignTimer = setTimeout(processNext, pause*1000);
+  } else {
+    scheduleNext();
+  }
+}
+
+function scheduleNext() {
+  if (!campaignRunning) return;
+  let delay = parseInt(document.getElementById('delaySlider').value)*1000;
+  if (document.getElementById('jitterToggle').checked) delay = Math.max(1000, delay + delay*0.2*(Math.random()*2-1));
+  setDetail(`Next in ${Math.round(delay/1000)}s`);
+  campaignTimer = setTimeout(processNext, delay);
+}
+
+function setDetail(t) {
+  document.getElementById('runningDetail').textContent = t;
+  document.getElementById('runningDetail2').textContent = t;
+}
+
+function stopCampaign() {
+  campaignRunning = false;
+  if (campaignTimer) clearTimeout(campaignTimer);
+  document.getElementById('startBtn').disabled = false;
+  document.getElementById('stopBtn').disabled = true;
+  document.getElementById('headerStatus').textContent = '⬤ STOPPED';
+  document.getElementById('headerStatus').style.color = 'var(--accent2)';
+  ['runningIndicator','runningIndicator2'].forEach(id=>document.getElementById(id).classList.remove('show'));
+  document.getElementById('progressPill').textContent = 'STOPPED';
+  logC('warn', `⏹ Stopped — Sent:${stats.sent} Failed:${stats.failed} Skipped:${stats.skipped}`);
+}
+
+function finishCampaign() {
+  campaignRunning = false;
+  document.getElementById('startBtn').disabled = false;
+  document.getElementById('stopBtn').disabled = true;
+  document.getElementById('headerStatus').textContent = '⬤ COMPLETE';
+  document.getElementById('headerStatus').style.color = 'var(--yellow)';
+  ['runningIndicator','runningIndicator2'].forEach(id=>document.getElementById(id).classList.remove('show'));
+  document.getElementById('progressPill').textContent = 'COMPLETE';
+  logC('success', `🎉 Done! Sent:${stats.sent} Failed:${stats.failed} Skipped:${stats.skipped}`);
+  toast(`Campaign complete! Sent: ${stats.sent}`, 'ok');
+}
+
+function resetCampaign() {
+  if (campaignRunning) return;
+  stats={sent:0,failed:0,skipped:0}; sentTo=new Set();
+  emailQueue.forEach(e=>e.status='pending');
+  renderContent(); updateStats(); updateProgress();
+  document.getElementById('progressPill').textContent='IDLE';
+  document.getElementById('headerStatus').textContent='⬤ IDLE';
+  document.getElementById('headerStatus').style.color='';
+  logC('info','↺ Reset');
+}
+
+function updateProgress() {
+  const total=emailQueue.length, done=emailQueue.filter(e=>e.status!=='pending').length;
+  const pct=total?(done/total)*100:0;
+  ['progressFill','campaignProgress'].forEach(id=>document.getElementById(id).style.width=pct+'%');
+  document.getElementById('progressLabel').textContent=`${done} / ${total} processed`;
+  document.getElementById('progressNumbers').textContent=`${done} / ${total}`;
+  document.getElementById('campaignProgressLabel').textContent=`${done}/${total} · Sent:${stats.sent} Failed:${stats.failed} Skipped:${stats.skipped}`;
+  updateCampaignSummary();
+}
+
+// ════════════════════════════════════════════
+// LOGGING
+// ════════════════════════════════════════════
+function logC(type, msg) {
+  const box=document.getElementById('campaignLog');
+  const cls={info:'log-info',success:'log-success',warn:'log-warn',error:'log-error',send:'log-send'}[type]||'log-info';
+  box.innerHTML+=`<div class="${cls}">[${new Date().toLocaleTimeString()}] ${msg}</div>`;
+  box.scrollTop=box.scrollHeight;
+}
+function addLogEntry(status, detail, subject, from, to) {
+  activityLog.push({ time:new Date().toLocaleTimeString(), from:from||'—', to:to||'—', subject:subject||'—', status, detail:detail||'' });
+  renderLog();
+}
+function renderLog() {
+  const tbody=document.getElementById('logTableBody');
+  if (!activityLog.length) { tbody.innerHTML='<tr><td colspan="6" class="empty"><div class="empty-icon">📋</div>No activity yet</td></tr>'; return; }
+  tbody.innerHTML=activityLog.slice().reverse().slice(0,300).map(l=>`
+    <tr>
+      <td style="font-family:var(--mono);font-size:11px;white-space:nowrap">${l.time}</td>
+      <td style="font-size:12px;font-family:var(--mono)">${l.from}</td>
+      <td style="font-size:12px;font-family:var(--mono)">${l.to}</td>
+      <td style="font-size:12px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.subject}</td>
+      <td><span class="tag ${l.status==='success'?'tag-green':l.status==='failed'?'tag-red':'tag-yellow'}">${l.status.toUpperCase()}</span></td>
+      <td style="font-size:11px;color:var(--muted);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.detail}</td>
+    </tr>`).join('');
+}
+function clearLog() { activityLog=[]; renderLog(); }
+
+// ════════════════════════════════════════════
+// STATS
+// ════════════════════════════════════════════
+function updateStats() {
+  const pending=emailQueue.filter(e=>e.status==='pending').length;
+  document.getElementById('statSent').textContent=stats.sent;
+  document.getElementById('statFailed').textContent=stats.failed;
+  document.getElementById('statSkipped').textContent=stats.skipped;
+  document.getElementById('statQueue').textContent=pending;
+  document.getElementById('statSenders').textContent=senders.length;
+  document.getElementById('statTemplates').textContent=emailQueue.length;
+  document.getElementById('dashSent').textContent=stats.sent;
+  document.getElementById('dashSenders').textContent=senders.length;
+  document.getElementById('dashTemplates').textContent=emailQueue.length;
+  updateProgress();
+}
+
+// ════════════════════════════════════════════
+// SHEET FETCH (via backend CORS proxy)
+// ════════════════════════════════════════════
+async function fetchSheetCSV(url) {
+  try {
+    const res = await fetch(`${getBackendUrl()}/api/fetch-sheet?url=${encodeURIComponent(url)}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.text();
+  } catch(e) {
+    toast(`Sheet fetch failed: ${e.message}`, 'err');
+    return null;
+  }
+}
+
+// ════════════════════════════════════════════
+// CSV PARSER
+// ════════════════════════════════════════════
+function parseCSVRow(row) {
+  const r=[]; let cur=''; let inQ=false;
+  for (let i=0;i<row.length;i++) {
+    if (row[i]==='"') { inQ=!inQ; continue; }
+    if (row[i]===',' && !inQ) { r.push(cur); cur=''; continue; }
+    cur+=row[i];
+  }
+  r.push(cur); return r;
+}
+
+// ════════════════════════════════════════════
+// EXPORT
+// ════════════════════════════════════════════
+function exportLog() { dl('mailforge-log.csv',['Time,From,To,Subject,Status,Detail',...activityLog.map(l=>`"${l.time}","${l.from}","${l.to}","${l.subject}","${l.status}","${l.detail}"`)].join('\n')); }
+function exportSenders() { dl('senders.csv',['Email,Name,DailyLimit,SentToday',...senders.map(s=>`"${s.email}","${s.name}",${s.dailyLimit},${s.sentToday}`)].join('\n')); }
+function exportQueue() { dl('queue.csv',['To,Subject,Body,CC,ReplyTo,Status,SentBy',...emailQueue.map(e=>`"${e.to}","${e.subject}","${e.body}","${e.cc}","${e.replyTo}","${e.status}","${e.sentBy}"`)].join('\n')); }
+function dl(name,text) { const a=document.createElement('a'); a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(text); a.download=name; a.click(); }
+function clearAll() { if(confirm('Clear ALL data?')){ senders=[]; emailQueue=[]; activityLog=[]; stats={sent:0,failed:0,skipped:0}; sentTo=new Set(); renderSenders(); renderContent(); renderLog(); updateStats(); } }
+
+// ════════════════════════════════════════════
+// TOAST & UTILS
+// ════════════════════════════════════════════
+let toastTimer;
+function toast(msg, type='info') {
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.className=`show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.remove('show'), 3500);
+}
+function sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
+
+// ════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════
+updateDelay(30);
+updateStats();
+checkBackend();
+</script>
+</body>
+</html>
