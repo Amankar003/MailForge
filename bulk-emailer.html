@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MailForge — Bulk Email Automation</title>
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root {
     --bg:#f4f6f9;--surface:#ffffff;--surface2:#f0f2f5;--border:#e1e4e8;
@@ -376,6 +377,34 @@
           </div>
         </div>
       </div>
+
+      <!-- CV Files: Local upload + saved files -->
+      <div class="card">
+        <div class="card-title">📁 CV Files — Local Sender Lists
+          <span style="font-size:11px;font-family:var(--mono);color:var(--muted);font-weight:400;margin-left:8px">Saved to the "CV Files" folder on disk · Survives page refresh</span>
+        </div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:12px">
+          Upload a local CSV file to persist it in the <strong>CV Files</strong> folder on your computer.
+          Files saved here remain available after refresh or restart.
+        </p>
+        <label>UPLOAD LOCAL CSV FILE</label>
+        <div class="flex gap-2" style="align-items:center">
+          <input type="file" id="cvFileInput" accept=".csv" style="flex:1;padding:8px 12px;font-size:13px;" />
+          <button class="btn btn-primary" style="white-space:nowrap" onclick="uploadCVFile()">💾 Save &amp; Load</button>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin-top:6px">
+          This saves the file to <code>CV Files/</code> and immediately imports senders from it.
+        </p>
+        <hr>
+        <div class="flex items-center justify-between" style="margin-bottom:10px">
+          <div style="font-size:13px;font-weight:600;color:var(--text)">📂 Saved Files</div>
+          <button class="btn btn-ghost btn-sm" onclick="refreshCVFiles()">↺ Refresh</button>
+        </div>
+        <div id="cvFilesList">
+          <div class="empty" style="padding:16px"><div class="empty-icon" style="font-size:24px">📂</div>No saved files yet</div>
+        </div>
+      </div>
+
       <div class="card">
         <div class="flex items-center justify-between" style="margin-bottom:14px">
           <div class="card-title" style="margin:0">👤 Accounts <span class="pill" id="senderPill">0</span></div>
@@ -397,28 +426,85 @@
     <div id="page-content" class="page">
       <h2>Email Queue</h2>
       <p class="subtitle">Recipients and email content. Personalization tokens: <code>{name}</code> <code>{email}</code> <code>{date}</code> <code>{sender}</code></p>
-      <div class="card">
-        <div class="card-title">📥 Import from Google Sheet</div>
-        <p style="font-size:13px;color:var(--muted);margin-bottom:12px">
-          <strong>Required columns:</strong> <code>to_email | subject | body | cc (opt) | reply_to (opt)</code>
+      <!-- ── BULK UPLOAD ──────────────────────────────────────────────── -->
+      <div class="card" style="border:2px solid var(--accent);background:linear-gradient(135deg,#fff9f9 0%,#fff 100%)">
+        <div class="card-title" style="color:var(--accent)">🚀 Bulk Upload — Add 100s of Emails at Once
+          <span style="font-size:11px;font-family:var(--mono);color:var(--muted);font-weight:400;margin-left:8px">Upload CSV → preview → add all to queue instantly</span>
+        </div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px">
+          Upload a <strong>CSV file</strong> — each row is one email. Supports <code>|</code> (pipe) or <code>,</code> (comma) as separator — auto-detected.<br>
+          <span style="color:var(--accent);font-weight:500">Required columns:</span>
+          <code>to_email</code> &nbsp;<code>subject</code> &nbsp;<code>body</code>
+          &nbsp;·&nbsp; Optional: <code>cc</code> &nbsp;<code>reply_to</code>
         </p>
-        <label>PUBLISHED CSV URL</label>
-        <div class="flex gap-2">
-          <input type="text" id="sheetUrl2" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv" />
-          <button class="btn btn-primary" style="white-space:nowrap" onclick="loadContentFromSheet()">📥 Load</button>
+
+        <!-- Upload row -->
+        <div class="flex gap-2" style="align-items:center;margin-bottom:12px">
+          <input type="file" id="bulkFileInput" accept=".csv"
+            style="flex:1;padding:8px 12px;font-size:13px;background:#fff;border:1px solid var(--border);border-radius:6px;"
+            onchange="parseBulkFile(this)" />
+          <button class="btn btn-ghost btn-sm" onclick="clearBulkFile()" style="white-space:nowrap">✕ Clear</button>
         </div>
+
+        <div id="bulkError" style="display:none;margin-bottom:10px;font-size:12px;color:var(--accent);background:rgba(211,47,47,.06);padding:8px 12px;border-radius:6px;border:1px solid rgba(211,47,47,.15)"></div>
+
+        <!-- Preview table after parse -->
+        <div id="bulkPreview" style="display:none">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+            <span class="tag tag-green" id="bulkCount" style="font-size:13px;padding:5px 12px">0 rows</span>
+            <span style="font-size:12px;color:var(--muted)" id="bulkPreviewDetail"></span>
+          </div>
+          <div class="table-wrap" style="max-height:220px;overflow-y:auto;margin-bottom:14px">
+            <table>
+              <thead><tr><th>To Email</th><th>Subject</th><th>Body Preview</th><th>CC</th><th>Reply-To</th></tr></thead>
+              <tbody id="bulkPreviewBody"></tbody>
+            </table>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <button class="btn btn-primary" id="bulkAddBtn" onclick="bulkAddToQueue()" style="font-size:15px;padding:12px 28px">
+              ➕ Add All to Queue
+            </button>
+            <span id="bulkAddLabel" style="font-size:13px;color:var(--muted)"></span>
+          </div>
+        </div>
+
+        <!-- ── Saved CSV Files (persists after refresh) ── -->
+        <hr style="margin:18px 0 14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:13px;font-weight:600;color:var(--text)">📂 Saved Email Lists <span style="font-size:11px;font-family:var(--mono);color:var(--muted);font-weight:400;margin-left:6px">Survives page refresh</span></div>
+          <button class="btn btn-ghost btn-sm" onclick="refreshBulkCSVList()">↺ Refresh</button>
+        </div>
+        <div id="bulkCSVList">
+          <div class="empty" style="padding:14px"><div class="empty-icon" style="font-size:22px">📄</div>No saved lists yet — upload a CSV above to save it automatically</div>
+        </div>
+      </div>
+
+      <!-- Attachments: local file storage -->
+      <div class="card">
+        <div class="card-title">📎 Email Attachments — CV / Documents
+          <span style="font-size:11px;font-family:var(--mono);color:var(--muted);font-weight:400;margin-left:8px">Saved to the "Attachments" folder · Survives page refresh</span>
+        </div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:12px">
+          Upload any file (PDF, DOCX, etc.) to attach it to outgoing emails. Files are stored in the
+          <strong>Attachments/</strong> folder on your computer and remain available after refresh or restart.
+        </p>
+        <label>UPLOAD LOCAL FILE</label>
+        <div class="flex gap-2" style="align-items:center">
+          <input type="file" id="attachFileInput" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.zip,.xlsx,.pptx"
+            style="flex:1;padding:8px 12px;font-size:13px;" />
+          <button class="btn btn-primary" style="white-space:nowrap" onclick="uploadAttachment()">💾 Save</button>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin-top:6px">
+          Accepted: PDF, DOCX, TXT, PNG, JPG, ZIP, XLSX, PPTX
+        </p>
         <hr>
-        <div class="input-row">
-          <div><label>RECIPIENT EMAIL</label><input type="email" id="newToEmail" placeholder="recipient@example.com" /></div>
-          <div><label>SUBJECT</label><input type="text" id="newSubject" placeholder="Hello {name}!" /></div>
+        <div class="flex items-center justify-between" style="margin-bottom:10px">
+          <div style="font-size:13px;font-weight:600;color:var(--text)">📂 Saved Attachments</div>
+          <button class="btn btn-ghost btn-sm" onclick="refreshAttachments()">↺ Refresh</button>
         </div>
-        <label>BODY</label>
-        <textarea id="newBody" placeholder="Hi {name}, reaching out regarding...&#10;&#10;Use {name}, {email}, {date}, {sender} as personalization tokens."></textarea>
-        <div class="input-row mt-2">
-          <div><label>CC (optional)</label><input type="text" id="newCC" placeholder="cc@example.com" /></div>
-          <div><label>REPLY-TO (optional)</label><input type="text" id="newReplyTo" placeholder="reply@example.com" /></div>
+        <div id="attachmentsList">
+          <div class="empty" style="padding:16px"><div class="empty-icon" style="font-size:24px">📂</div>No attachments saved yet</div>
         </div>
-        <button class="btn btn-success mt-3" onclick="addContent()">+ Add to Queue</button>
       </div>
       <div class="card">
         <div class="flex items-center justify-between" style="margin-bottom:14px">
@@ -430,8 +516,8 @@
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>To</th><th>Subject</th><th>Body Preview</th><th>Sent By</th><th>Status</th><th></th></tr></thead>
-            <tbody id="contentTableBody"><tr><td colspan="6" class="empty"><div class="empty-icon">📄</div>No emails in queue</td></tr></tbody>
+            <thead><tr><th>To</th><th>Subject</th><th>Body Preview</th><th>Attachment</th><th>Sent By</th><th>Status</th><th></th></tr></thead>
+            <tbody id="contentTableBody"><tr><td colspan="7" class="empty"><div class="empty-icon">📄</div>No emails in queue</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -743,20 +829,6 @@ async function loadSendersFromSheet() {
 // ════════════════════════════════════════════
 // EMAIL QUEUE
 // ════════════════════════════════════════════
-function addContent() {
-  const t = document.getElementById('newToEmail').value.trim();
-  const s = document.getElementById('newSubject').value.trim();
-  const b = document.getElementById('newBody').value.trim();
-  const c = document.getElementById('newCC').value.trim();
-  const r = document.getElementById('newReplyTo').value.trim();
-  if (!t||!s||!b) { toast('To, Subject, Body required', 'err'); return; }
-  emailQueue.push({ to:t, subject:s, body:b, cc:c, replyTo:r, status:'pending', sentBy:'', sentAt:'' });
-  document.getElementById('newToEmail').value = '';
-  document.getElementById('newSubject').value = '';
-  document.getElementById('newBody').value = '';
-  renderContent(); updateStats();
-  toast(`Added: ${t}`, 'info');
-}
 
 function removeContent(idx) { emailQueue.splice(idx,1); renderContent(); updateStats(); }
 function clearContent() { if(confirm('Clear queue?')){ emailQueue=[]; renderContent(); updateStats(); sentTo=new Set(); } }
@@ -769,12 +841,13 @@ function resetQueue() {
 
 function renderContent() {
   const tbody = document.getElementById('contentTableBody');
-  if (!emailQueue.length) { tbody.innerHTML='<tr><td colspan="6" class="empty"><div class="empty-icon">📄</div>No emails in queue</td></tr>'; return; }
+  if (!emailQueue.length) { tbody.innerHTML='<tr><td colspan="7" class="empty"><div class="empty-icon">📄</div>No emails in queue</td></tr>'; return; }
   tbody.innerHTML = emailQueue.map((e,i) => `
     <tr>
       <td style="font-family:var(--mono);font-size:12px">${e.to}</td>
-      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.subject}</td>
-      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:12px">${e.body.substring(0,55)}...</td>
+      <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.subject}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:12px">${e.body.substring(0,50)}...</td>
+      <td style="font-size:11px;font-family:var(--mono);color:${e.attachment?'var(--green)':'var(--muted)'};white-space:nowrap">${e.attachment?'📎 '+e.attachment:'—'}</td>
       <td style="font-size:12px;font-family:var(--mono);color:var(--muted)">${e.sentBy||'—'}</td>
       <td><span class="tag ${e.status==='sent'?'tag-green':e.status==='failed'?'tag-red':e.status==='skipped'?'tag-yellow':'tag-blue'}">${e.status.toUpperCase()}</span></td>
       <td><button class="btn btn-ghost btn-sm" onclick="removeContent(${i})">✕</button></td>
@@ -783,24 +856,6 @@ function renderContent() {
   document.getElementById('contentPill').textContent = emailQueue.length;
 }
 
-async function loadContentFromSheet() {
-  const url = document.getElementById('sheetUrl2').value.trim();
-  if (!url) { toast('Enter a CSV URL', 'err'); return; }
-  toast('Fetching sheet...', 'info');
-  const csv = await fetchSheetCSV(url);
-  if (!csv) return;
-  let added = 0;
-  csv.trim().split('\n').forEach((row,i) => {
-    if (i===0 && row.toLowerCase().includes('email')) return;
-    const [to,subject,body,cc,replyTo] = parseCSVRow(row).map(c=>c.trim());
-    if (to && to.includes('@') && subject && body) {
-      emailQueue.push({ to, subject, body, cc:cc||'', replyTo:replyTo||'', status:'pending', sentBy:'', sentAt:'' });
-      added++;
-    }
-  });
-  renderContent(); updateStats();
-  toast(`Loaded ${added} emails`, 'ok');
-}
 
 // ════════════════════════════════════════════
 // CAMPAIGN ENGINE
@@ -884,7 +939,8 @@ async function processNext() {
 
   const subject = personalize(item.subject, item, sender);
   const body = personalize(item.body, item, sender);
-  logC('send', `📧 → ${item.to} via ${sender.email}`);
+  const attachNote = item.attachment ? ` 📎 ${item.attachment}` : '';
+  logC('send', `📧 → ${item.to} via ${sender.email}${attachNote}`);
 
   const result = await api('/api/send', {
     from_email: sender.email,
@@ -894,6 +950,7 @@ async function processNext() {
     subject, body,
     cc: item.cc || undefined,
     reply_to: item.replyTo || undefined,
+    attachment_name: item.attachment || undefined,
     daily_limit: Math.min(sender.dailyLimit, parseInt(document.getElementById('globalDailyLimit').value)||100),
     smtp_host: document.getElementById('smtpHost').value,
     smtp_port: document.getElementById('smtpPort').value,
@@ -1081,11 +1138,461 @@ function toast(msg, type='info') {
 function sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
 
 // ════════════════════════════════════════════
+// CV FILES — local persistent storage
+// ════════════════════════════════════════════
+
+async function refreshCVFiles() {
+  const container = document.getElementById('cvFilesList');
+  container.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:8px 0">Loading...</div>';
+  try {
+    const res = await fetch(`${getBackendUrl()}/api/cv-files`);
+    const data = await res.json();
+    if (!data.ok || !data.files.length) {
+      container.innerHTML = '<div class="empty" style="padding:16px"><div class="empty-icon" style="font-size:24px">📂</div>No saved files yet</div>';
+      return;
+    }
+    container.innerHTML = `
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>File Name</th><th>Size</th><th>Last Modified</th><th>Actions</th></tr></thead>
+          <tbody>${data.files.map(f => `
+            <tr>
+              <td style="font-family:var(--mono);font-size:12px">📄 ${f.name}</td>
+              <td style="font-family:var(--mono);font-size:12px;color:var(--muted)">${(f.size/1024).toFixed(1)} KB</td>
+              <td style="font-size:12px;color:var(--muted)">${new Date(f.modified).toLocaleString()}</td>
+              <td><div class="flex gap-2">
+                <button class="btn btn-ghost btn-sm" onclick="loadSendersFromCVFile('${f.name}')">📥 Load</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteCVFile('${f.name}')">✕</button>
+              </div></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  } catch (e) {
+    container.innerHTML = `<div style="font-size:13px;color:var(--accent);padding:8px 0">Failed to load files: ${e.message}</div>`;
+  }
+}
+
+async function uploadCVFile() {
+  const input = document.getElementById('cvFileInput');
+  if (!input.files || !input.files[0]) { toast('Select a CSV file first', 'err'); return; }
+  const file = input.files[0];
+  if (!file.name.toLowerCase().endsWith('.csv')) { toast('Only .csv files are supported', 'err'); return; }
+
+  toast(`Uploading ${file.name}...`, 'info');
+  const content = await readFileAsText(file);
+
+  try {
+    const res = await fetch(`${getBackendUrl()}/api/cv-files`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: file.name, content }),
+    });
+    const data = await res.json();
+    if (!data.ok) { toast(`Save failed: ${data.error}`, 'err'); return; }
+    toast(`✅ Saved as "${data.name}"`, 'ok');
+    input.value = '';
+    // Immediately import senders from the content
+    importSendersFromCSV(content, data.name);
+    // Refresh the saved files list
+    refreshCVFiles();
+  } catch (e) {
+    toast(`Upload error: ${e.message}`, 'err');
+  }
+}
+
+async function loadSendersFromCVFile(name) {
+  toast(`Loading ${name}...`, 'info');
+  try {
+    const res = await fetch(`${getBackendUrl()}/api/cv-files/${encodeURIComponent(name)}`);
+    if (!res.ok) { toast(`File not found: ${name}`, 'err'); return; }
+    const content = await res.text();
+    importSendersFromCSV(content, name);
+  } catch (e) {
+    toast(`Load error: ${e.message}`, 'err');
+  }
+}
+
+async function deleteCVFile(name) {
+  if (!confirm(`Delete "${name}" from CV Files?`)) return;
+  try {
+    const res = await fetch(`${getBackendUrl()}/api/cv-files/${encodeURIComponent(name)}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.ok) { toast(`Deleted "${name}"`, 'ok'); refreshCVFiles(); }
+    else toast(`Delete failed: ${data.error}`, 'err');
+  } catch (e) {
+    toast(`Delete error: ${e.message}`, 'err');
+  }
+}
+
+function importSendersFromCSV(csv, sourceName) {
+  let added = 0;
+  csv.trim().split('\n').forEach((row, i) => {
+    if (i === 0 && row.toLowerCase().includes('email')) return; // skip header
+    const [email, pass, name, limit] = parseCSVRow(row).map(c => c.trim());
+    if (email && email.includes('@') && pass && !senders.find(s => s.email === email)) {
+      senders.push({ email, password: pass, name: name || email.split('@')[0], dailyLimit: parseInt(limit) || 100, sentToday: 0, status: 'unverified' });
+      added++;
+    }
+  });
+  renderSenders(); updateStats();
+  toast(`Loaded ${added} senders from "${sourceName}"`, added > 0 ? 'ok' : 'info');
+}
+
+function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => resolve(e.target.result);
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsText(file);
+  });
+}
+
+// ════════════════════════════════════════════
+// BULK UPLOAD — add 100s of emails at once
+// ════════════════════════════════════════════
+
+let bulkRows = []; // parsed rows from uploaded CSV
+
+function parseBulkFile(input) {
+  const file = input.files[0];
+  const errBox  = document.getElementById('bulkError');
+  const preview = document.getElementById('bulkPreview');
+  errBox.style.display  = 'none';
+  preview.style.display = 'none';
+  bulkRows = [];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const text  = e.target.result;
+      const lines = text.trim().split(/\r?\n/);
+      if (lines.length < 2) throw new Error('File is empty or has only a header row.');
+
+      // Auto-detect separator from header line
+      const headerRaw = lines[0];
+      const sep = headerRaw.includes('|') ? '|' : ',';
+
+      const cols = headerRaw.split(sep).map(c => c.replace(/"/g,'').trim().toLowerCase());
+      const toIdx      = cols.indexOf('to_email') !== -1 ? cols.indexOf('to_email') : cols.indexOf('to');
+      const subIdx     = cols.indexOf('subject');
+      const bodyIdx    = cols.indexOf('body');
+      const ccIdx      = cols.indexOf('cc');
+      const replyToIdx = cols.indexOf('reply_to');
+
+      if (toIdx === -1)  throw new Error(`Missing "to_email" column. Found: ${cols.join(', ')}`);
+      if (subIdx === -1) throw new Error(`Missing "subject" column. Found: ${cols.join(', ')}`);
+      if (bodyIdx === -1) throw new Error(`Missing "body" column. Found: ${cols.join(', ')}`);
+
+      const rows = [];
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        const parts = sep === ',' ? parseCSVRow(line) : line.split('|').map(c => c.replace(/^"|"$/g,'').trim());
+        const to      = (parts[toIdx]      || '').trim();
+        const subject = (parts[subIdx]     || '').trim();
+        const body    = (parts[bodyIdx]    || '').trim();
+        const cc      = ccIdx      !== -1 ? (parts[ccIdx]      || '').trim() : '';
+        const replyTo = replyToIdx !== -1 ? (parts[replyToIdx] || '').trim() : '';
+        if (to && to.includes('@') && subject && body) {
+          rows.push({ to, subject, body, cc, replyTo });
+        }
+      }
+
+      if (!rows.length) throw new Error('No valid rows found. Check that to_email, subject, and body all have values.');
+
+      bulkRows = rows;
+
+      document.getElementById('bulkCount').textContent       = `${rows.length} email${rows.length !== 1 ? 's' : ''} ready`;
+      document.getElementById('bulkPreviewDetail').textContent = `Separator: "${sep}" · ${cols.length} columns detected`;
+
+      const tbody = document.getElementById('bulkPreviewBody');
+      tbody.innerHTML = rows.slice(0, 20).map(r => `
+        <tr>
+          <td style="font-family:var(--mono);font-size:11px">${r.to}</td>
+          <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px">${r.subject}</td>
+          <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--muted)">${r.body.substring(0,60)}…</td>
+          <td style="font-size:11px;color:var(--muted)">${r.cc||'—'}</td>
+          <td style="font-size:11px;color:var(--muted)">${r.replyTo||'—'}</td>
+        </tr>`).join('')
+        + (rows.length > 20 ? `<tr><td colspan="5" style="text-align:center;color:var(--muted);font-size:12px;padding:8px">… and ${rows.length - 20} more rows</td></tr>` : '');
+
+      document.getElementById('bulkAddLabel').textContent = '';
+      document.getElementById('bulkAddBtn').disabled = false;
+      preview.style.display = 'block';
+      toast(`✅ Parsed ${rows.length} emails from "${file.name}"`, 'ok');
+
+      // Auto-save to CV Files folder so it survives refresh
+      saveBulkCSVToFolder(file.name, e.target.result);
+
+    } catch (err) {
+      errBox.textContent   = `⚠️ ${err.message}`;
+      errBox.style.display = 'block';
+      toast(`Parse error: ${err.message}`, 'err');
+    }
+  };
+  reader.readAsText(file);
+}
+
+async function saveBulkCSVToFolder(filename, content) {
+  try {
+    const res = await fetch(`${getBackendUrl()}/api/cv-files`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename, content }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      toast(`💾 Saved "${data.name}" to CV Files`, 'ok');
+      refreshBulkCSVList();
+    }
+  } catch (_) {}
+}
+
+function bulkAddToQueue() {
+  if (!bulkRows.length) { toast('Upload a file first', 'err'); return; }
+  let added = 0;
+  bulkRows.forEach(r => {
+    emailQueue.push({ to: r.to, subject: r.subject, body: r.body, cc: r.cc, replyTo: r.replyTo, attachment: '', status: 'pending', sentBy: '', sentAt: '' });
+    added++;
+  });
+  renderContent(); updateStats();
+  document.getElementById('bulkAddLabel').textContent = `✅ ${added} emails added to queue!`;
+  document.getElementById('bulkAddBtn').disabled = true;
+  toast(`🚀 Added ${added} emails to queue`, 'ok');
+}
+
+function clearBulkFile() {
+  bulkRows = [];
+  document.getElementById('bulkFileInput').value        = '';
+  document.getElementById('bulkPreview').style.display  = 'none';
+  document.getElementById('bulkError').style.display    = 'none';
+}
+
+// ── Saved CSV list (persists in CV Files folder) ──────────────────────────
+async function refreshBulkCSVList() {
+  const container = document.getElementById('bulkCSVList');
+  container.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:6px 0">Loading...</div>';
+  try {
+    const res  = await fetch(`${getBackendUrl()}/api/cv-files`);
+    const data = await res.json();
+    if (!data.ok || !data.files.length) {
+      container.innerHTML = '<div class="empty" style="padding:14px"><div class="empty-icon" style="font-size:22px">📄</div>No saved lists yet — upload a CSV above to save it automatically</div>';
+      return;
+    }
+    container.innerHTML = `
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>File Name</th><th>Size</th><th>Saved</th><th>Actions</th></tr></thead>
+          <tbody>${data.files.map(f => `
+            <tr>
+              <td style="font-family:var(--mono);font-size:12px">📄 ${f.name}</td>
+              <td style="font-family:var(--mono);font-size:12px;color:var(--muted)">${(f.size/1024).toFixed(1)} KB</td>
+              <td style="font-size:12px;color:var(--muted)">${new Date(f.modified).toLocaleString()}</td>
+              <td><div class="flex gap-2">
+                <button class="btn btn-success btn-sm" onclick="loadBulkCSVFile('${f.name.replace(/'/g,"\\'")}')">📥 Load</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteBulkCSVFile('${f.name.replace(/'/g,"\\'")}')">✕</button>
+              </div></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  } catch (e) {
+    container.innerHTML = `<div style="font-size:13px;color:var(--accent);padding:6px 0">Failed to load: ${e.message}</div>`;
+  }
+}
+
+async function loadBulkCSVFile(name) {
+  toast(`Loading ${name}...`, 'info');
+  try {
+    const res = await fetch(`${getBackendUrl()}/api/cv-files/${encodeURIComponent(name)}`);
+    if (!res.ok) { toast(`File not found: ${name}`, 'err'); return; }
+    const csv = await res.text();
+    const errBox  = document.getElementById('bulkError');
+    const preview = document.getElementById('bulkPreview');
+    errBox.style.display  = 'none';
+    preview.style.display = 'none';
+    bulkRows = [];
+
+    const lines = csv.trim().split(/\r?\n/);
+    if (lines.length < 2) { toast('File is empty', 'err'); return; }
+
+    const headerRaw = lines[0];
+    const sep = headerRaw.includes('|') ? '|' : ',';
+    const cols = headerRaw.split(sep).map(c => c.replace(/"/g,'').trim().toLowerCase());
+    const toIdx      = cols.indexOf('to_email') !== -1 ? cols.indexOf('to_email') : cols.indexOf('to');
+    const subIdx     = cols.indexOf('subject');
+    const bodyIdx    = cols.indexOf('body');
+    const ccIdx      = cols.indexOf('cc');
+    const replyToIdx = cols.indexOf('reply_to');
+
+    if (toIdx === -1 || subIdx === -1 || bodyIdx === -1) {
+      errBox.textContent   = `⚠️ Missing required columns in "${name}". Found: ${cols.join(', ')}`;
+      errBox.style.display = 'block';
+      return;
+    }
+
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+      const parts   = sep === ',' ? parseCSVRow(line) : line.split('|').map(c => c.replace(/^"|"$/g,'').trim());
+      const to      = (parts[toIdx]      || '').trim();
+      const subject = (parts[subIdx]     || '').trim();
+      const body    = (parts[bodyIdx]    || '').trim();
+      const cc      = ccIdx      !== -1 ? (parts[ccIdx]      || '').trim() : '';
+      const replyTo = replyToIdx !== -1 ? (parts[replyToIdx] || '').trim() : '';
+      if (to && to.includes('@') && subject && body) rows.push({ to, subject, body, cc, replyTo });
+    }
+
+    if (!rows.length) { toast('No valid rows in file', 'err'); return; }
+
+    bulkRows = rows;
+    document.getElementById('bulkCount').textContent        = `${rows.length} email${rows.length !== 1 ? 's' : ''} ready`;
+    document.getElementById('bulkPreviewDetail').textContent = `Loaded from: ${name} · Sep: "${sep}"`;
+
+    const tbody = document.getElementById('bulkPreviewBody');
+    tbody.innerHTML = rows.slice(0, 20).map(r => `
+      <tr>
+        <td style="font-family:var(--mono);font-size:11px">${r.to}</td>
+        <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px">${r.subject}</td>
+        <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--muted)">${r.body.substring(0,60)}…</td>
+        <td style="font-size:11px;color:var(--muted)">${r.cc||'—'}</td>
+        <td style="font-size:11px;color:var(--muted)">${r.replyTo||'—'}</td>
+      </tr>`).join('')
+      + (rows.length > 20 ? `<tr><td colspan="5" style="text-align:center;color:var(--muted);font-size:12px;padding:8px">… and ${rows.length - 20} more rows</td></tr>` : '');
+
+    document.getElementById('bulkAddLabel').textContent = '';
+    document.getElementById('bulkAddBtn').disabled = false;
+    preview.style.display = 'block';
+    toast(`✅ Loaded ${rows.length} emails from "${name}"`, 'ok');
+  } catch (e) {
+    toast(`Load error: ${e.message}`, 'err');
+  }
+}
+
+async function deleteBulkCSVFile(name) {
+  if (!confirm(`Delete "${name}" from saved lists?`)) return;
+  try {
+    const res  = await fetch(`${getBackendUrl()}/api/cv-files/${encodeURIComponent(name)}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.ok) { toast(`Deleted "${name}"`, 'ok'); refreshBulkCSVList(); }
+    else toast(`Delete failed: ${data.error}`, 'err');
+  } catch (e) {
+    toast(`Delete error: ${e.message}`, 'err');
+  }
+}
+
+
+function readFileAsArrayBuffer(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = e => resolve(new Uint8Array(e.target.result));
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// ════════════════════════════════════════════
+// ATTACHMENTS — local persistent storage
+// ════════════════════════════════════════════
+
+async function refreshAttachments() {
+  const container = document.getElementById('attachmentsList');
+  container.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:8px 0">Loading...</div>';
+  try {
+    const res = await fetch(`${getBackendUrl()}/api/attachments`);
+    const data = await res.json();
+    if (!data.ok || !data.files.length) {
+      container.innerHTML = '<div class="empty" style="padding:16px"><div class="empty-icon" style="font-size:24px">📂</div>No attachments saved yet</div>';
+      return;
+    }
+    container.innerHTML = `
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>File Name</th><th>Size</th><th>Last Modified</th><th>Actions</th></tr></thead>
+          <tbody>${data.files.map(f => `
+            <tr>
+              <td style="font-family:var(--mono);font-size:12px">📎 ${f.name}</td>
+              <td style="font-family:var(--mono);font-size:12px;color:var(--muted)">${(f.size/1024).toFixed(1)} KB</td>
+              <td style="font-size:12px;color:var(--muted)">${new Date(f.modified).toLocaleString()}</td>
+              <td><div class="flex gap-2">
+                <button class="btn btn-ghost btn-sm" onclick="toast('📎 Use this file name in your CSV body or note it for reference','info')">📋 Copy Name</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteAttachment('${f.name.replace(/'/g,"\\'")}')">✕</button>
+              </div></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  } catch (e) {
+    container.innerHTML = `<div style="font-size:13px;color:var(--accent);padding:8px 0">Failed to load: ${e.message}</div>`;
+  }
+}
+
+
+async function uploadAttachment() {
+  const input = document.getElementById('attachFileInput');
+  if (!input.files || !input.files[0]) { toast('Select a file first', 'err'); return; }
+  const file = input.files[0];
+  const maxMB = 10;
+  if (file.size > maxMB * 1024 * 1024) { toast(`File too large (max ${maxMB}MB)`, 'err'); return; }
+
+  toast(`Uploading ${file.name}...`, 'info');
+  try {
+    const content_base64 = await readFileAsBase64(file);
+    const res = await fetch(`${getBackendUrl()}/api/attachments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: file.name, content_base64 }),
+    });
+    const data = await res.json();
+    if (!data.ok) { toast(`Save failed: ${data.error}`, 'err'); return; }
+    toast(`✅ Saved "${data.name}" (${(data.size/1024).toFixed(1)} KB)`, 'ok');
+    input.value = '';
+    refreshAttachments();
+  } catch (e) {
+    toast(`Upload error: ${e.message}`, 'err');
+  }
+}
+
+async function deleteAttachment(name) {
+  if (!confirm(`Delete attachment "${name}"?`)) return;
+  try {
+    const res = await fetch(`${getBackendUrl()}/api/attachments/${encodeURIComponent(name)}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.ok) { toast(`Deleted "${name}"`, 'ok'); refreshAttachments(); }
+    else toast(`Delete failed: ${data.error}`, 'err');
+  } catch (e) {
+    toast(`Delete error: ${e.message}`, 'err');
+  }
+}
+
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      // result is "data:<mime>;base64,<data>" — strip the prefix
+      const b64 = e.target.result.split(',')[1];
+      resolve(b64);
+    };
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
+}
+
+// ════════════════════════════════════════════
 // INIT
 // ════════════════════════════════════════════
 updateDelay(30);
 updateStats();
 checkBackend();
+// Load saved CV files list on startup
+setTimeout(refreshCVFiles, 800);
+// Load saved attachments on startup
+setTimeout(refreshAttachments, 900);
+// Load saved bulk email CSV list on startup
+setTimeout(refreshBulkCSVList, 1000);
 </script>
 </body>
 </html>

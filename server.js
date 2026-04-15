@@ -8,9 +8,25 @@ const express = require('express');
 const nodemailer = require('nodemailer');
 const cors = require('cors');
 const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
 const PORT = 3001;
+
+// ─── CV Files folder ──────────────────────────────────────────────────────────
+const CV_DIR = path.join(__dirname, 'CV Files');
+if (!fs.existsSync(CV_DIR)) {
+  fs.mkdirSync(CV_DIR, { recursive: true });
+  console.log(`📁  Created "CV Files" folder at ${CV_DIR}`);
+}
+
+// ─── Attachments folder ───────────────────────────────────────────────────────
+const ATTACH_DIR = path.join(__dirname, 'Attachments');
+if (!fs.existsSync(ATTACH_DIR)) {
+  fs.mkdirSync(ATTACH_DIR, { recursive: true });
+  console.log(`📎  Created "Attachments" folder at ${ATTACH_DIR}`);
+}
 
 app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '10mb' }));
@@ -99,6 +115,7 @@ app.post('/api/send', async (req, res) => {
     daily_limit = 100,
     smtp_host = 'smtp.gmail.com', smtp_port = 587,
     unsubscribe_header = true,
+    attachment_name,            // optional: filename from Attachments folder
   } = req.body;
 
   if (!from_email || !from_password || !to || !subject || !body) {
@@ -116,6 +133,18 @@ app.post('/api/send', async (req, res) => {
 
     const fromAddr = from_name ? `"${from_name}" <${from_email}>` : from_email;
 
+    // Build optional attachment
+    const attachments = [];
+    if (attachment_name) {
+      const safe = path.basename(attachment_name);
+      const attachPath = path.join(ATTACH_DIR, safe);
+      if (fs.existsSync(attachPath)) {
+        attachments.push({ filename: safe, path: attachPath });
+      } else {
+        console.warn(`⚠️  Attachment not found: ${attachPath}`);
+      }
+    }
+
     const mailOptions = {
       from: fromAddr,
       to,
@@ -124,6 +153,7 @@ app.post('/api/send', async (req, res) => {
       html: body.replace(/\n/g, '<br>'),
       ...(cc ? { cc } : {}),
       ...(reply_to ? { replyTo: reply_to } : {}),
+      ...(attachments.length ? { attachments } : {}),
       headers: {
         'X-Mailer': 'MailForge/1.0',
         ...(unsubscribe_header ? { 'List-Unsubscribe': `<mailto:${from_email}?subject=unsubscribe>` } : {}),
@@ -181,6 +211,119 @@ app.get('/api/fetch-sheet', async (req, res) => {
     res.send(response.data);
   } catch (err) {
     res.status(500).json({ error: `Failed to fetch sheet: ${err.message}` });
+  }
+});
+
+// ─── Attachment endpoints ─────────────────────────────────────────────────────
+
+// List all saved attachment files
+app.get('/api/attachments', (req, res) => {
+  try {
+    const files = fs.readdirSync(ATTACH_DIR)
+      .filter(f => !f.startsWith('.'))
+      .map(f => {
+        const stat = fs.statSync(path.join(ATTACH_DIR, f));
+        return { name: f, size: stat.size, modified: stat.mtime.toISOString() };
+      })
+      .sort((a, b) => new Date(b.modified) - new Date(a.modified));
+    res.json({ ok: true, files });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Upload an attachment file (base64 encoded)
+// Body: { filename: 'resume.pdf', content_base64: '<base64 string>' }
+app.post('/api/attachments', (req, res) => {
+  const { filename, content_base64 } = req.body;
+  if (!filename || !content_base64) {
+    return res.status(400).json({ ok: false, error: 'Missing filename or content_base64' });
+  }
+  const safe = path.basename(filename).replace(/[^a-zA-Z0-9._\- ]/g, '_');
+  try {
+    const buf = Buffer.from(content_base64, 'base64');
+    fs.writeFileSync(path.join(ATTACH_DIR, safe), buf);
+    res.json({ ok: true, name: safe, size: buf.length });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Delete an attachment file
+app.delete('/api/attachments/:name', (req, res) => {
+  const safe = path.basename(req.params.name);
+  const filePath = path.join(ATTACH_DIR, safe);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ ok: false, error: 'File not found' });
+  try {
+    fs.unlinkSync(filePath);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ─── CV Files endpoints ───────────────────────────────────────────────────────
+
+// List all saved CSV files in the CV Files folder
+app.get('/api/cv-files', (req, res) => {
+  try {
+    const files = fs.readdirSync(CV_DIR)
+      .filter(f => f.toLowerCase().endsWith('.csv'))
+      .map(f => {
+        const stat = fs.statSync(path.join(CV_DIR, f));
+        return { name: f, size: stat.size, modified: stat.mtime.toISOString() };
+      })
+      .sort((a, b) => new Date(b.modified) - new Date(a.modified));
+    res.json({ ok: true, files });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Save (upload) a CSV file to the CV Files folder
+// Body: { filename: 'senders.csv', content: '<csv text>' }
+app.post('/api/cv-files', (req, res) => {
+  const { filename, content } = req.body;
+  if (!filename || !content) return res.status(400).json({ ok: false, error: 'Missing filename or content' });
+
+  // Sanitise filename — strip path separators
+  const safe = path.basename(filename).replace(/[^a-zA-Z0-9._\- ]/g, '_');
+  if (!safe.toLowerCase().endsWith('.csv')) {
+    return res.status(400).json({ ok: false, error: 'Only .csv files are allowed' });
+  }
+
+  try {
+    fs.writeFileSync(path.join(CV_DIR, safe), content, 'utf8');
+    res.json({ ok: true, name: safe });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Read a specific saved CSV file
+app.get('/api/cv-files/:name', (req, res) => {
+  const safe = path.basename(req.params.name);
+  const filePath = path.join(CV_DIR, safe);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ ok: false, error: 'File not found' });
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    res.setHeader('Content-Type', 'text/plain');
+    res.send(content);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Delete a saved CSV file
+app.delete('/api/cv-files/:name', (req, res) => {
+  const safe = path.basename(req.params.name);
+  const filePath = path.join(CV_DIR, safe);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ ok: false, error: 'File not found' });
+  try {
+    fs.unlinkSync(filePath);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
   }
 });
 
