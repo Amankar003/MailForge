@@ -352,40 +352,14 @@
     <div id="page-senders" class="page">
       <h2>Sender Accounts</h2>
       <p class="subtitle">Gmail accounts that send emails. Use Google App Passwords — NOT your main Gmail password.</p>
+      <!-- Senders: local upload + saved files (CSV only) -->
       <div class="card">
-        <div class="card-title">📥 Import from Google Sheet</div>
-        <p style="font-size:13px;color:var(--muted);margin-bottom:12px">
-          In Google Sheets: <strong>File → Share → Publish to web → Comma-separated values (CSV)</strong><br>
-          <strong>Required columns:</strong> <code>email | password | name (opt) | daily_limit (opt)</code>
-        </p>
-        <label>PUBLISHED CSV URL</label>
-        <div class="flex gap-2">
-          <input type="text" id="sheetUrl1" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv" />
-          <button class="btn btn-primary" style="white-space:nowrap" onclick="loadSendersFromSheet()">📥 Load</button>
-        </div>
-        <hr>
-        <div class="input-row three">
-          <div><label>EMAIL ADDRESS</label><input type="email" id="newSenderEmail" placeholder="sender@gmail.com" /></div>
-          <div><label>GOOGLE APP PASSWORD</label><input type="password" id="newSenderPass" placeholder="xxxx xxxx xxxx xxxx" /></div>
-          <div><label>DISPLAY NAME (optional)</label><input type="text" id="newSenderName" placeholder="John Doe" /></div>
-        </div>
-        <div class="input-row mt-2">
-          <div><label>DAILY SEND LIMIT</label><input type="number" id="newSenderLimit" value="100" min="1" max="500" /></div>
-          <div style="display:flex;align-items:flex-end;gap:8px">
-            <button class="btn btn-ghost" onclick="verifySenderForm()" style="flex:1">🔍 Verify SMTP</button>
-            <button class="btn btn-success" onclick="addSender()" style="flex:1">+ Add</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- CV Files: Local upload + saved files -->
-      <div class="card">
-        <div class="card-title">📁 CV Files — Local Sender Lists
-          <span style="font-size:11px;font-family:var(--mono);color:var(--muted);font-weight:400;margin-left:8px">Saved to the "CV Files" folder on disk · Survives page refresh</span>
+        <div class="card-title">👤 Senders — Local CSV Lists
+          <span style="font-size:11px;font-family:var(--mono);color:var(--muted);font-weight:400;margin-left:8px">Saved to the "Senders/" folder on disk · Survives page refresh</span>
         </div>
         <p style="font-size:13px;color:var(--muted);margin-bottom:12px">
-          Upload a local CSV file to persist it in the <strong>CV Files</strong> folder on your computer.
-          Files saved here remain available after refresh or restart.
+          Upload a local <strong>.csv</strong> file to persist it in the <strong>Senders/</strong> folder on your computer.
+          Files saved here remain available after refresh or restart. Only <code>.csv</code> files are accepted.
         </p>
         <label>UPLOAD LOCAL CSV FILE</label>
         <div class="flex gap-2" style="align-items:center">
@@ -393,7 +367,7 @@
           <button class="btn btn-primary" style="white-space:nowrap" onclick="uploadCVFile()">💾 Save &amp; Load</button>
         </div>
         <p style="font-size:12px;color:var(--muted);margin-top:6px">
-          This saves the file to <code>CV Files/</code> and immediately imports senders from it.
+          This saves the file to <code>Senders/</code> and immediately imports senders from it.
         </p>
         <hr>
         <div class="flex items-center justify-between" style="margin-bottom:10px">
@@ -425,7 +399,6 @@
     <!-- CONTENT -->
     <div id="page-content" class="page">
       <h2>Email Queue</h2>
-      <p class="subtitle">Recipients and email content. Personalization tokens: <code>{name}</code> <code>{email}</code> <code>{date}</code> <code>{sender}</code></p>
       <!-- ── BULK UPLOAD ──────────────────────────────────────────────── -->
       <div class="card" style="border:2px solid var(--accent);background:linear-gradient(135deg,#fff9f9 0%,#fff 100%)">
         <div class="card-title" style="color:var(--accent)">🚀 Bulk Upload — Add 100s of Emails at Once
@@ -479,40 +452,23 @@
         </div>
       </div>
 
-      <!-- Attachments: local file storage -->
-      <div class="card">
-        <div class="card-title">📎 Email Attachments — CV / Documents
-          <span style="font-size:11px;font-family:var(--mono);color:var(--muted);font-weight:400;margin-left:8px">Saved to the "Attachments" folder · Survives page refresh</span>
-        </div>
-        <p style="font-size:13px;color:var(--muted);margin-bottom:12px">
-          Upload any file (PDF, DOCX, etc.) to attach it to outgoing emails. Files are stored in the
-          <strong>Attachments/</strong> folder on your computer and remain available after refresh or restart.
-        </p>
-        <label>UPLOAD LOCAL FILE</label>
-        <div class="flex gap-2" style="align-items:center">
-          <input type="file" id="attachFileInput" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.zip,.xlsx,.pptx"
-            style="flex:1;padding:8px 12px;font-size:13px;" />
-          <button class="btn btn-primary" style="white-space:nowrap" onclick="uploadAttachment()">💾 Save</button>
-        </div>
-        <p style="font-size:12px;color:var(--muted);margin-top:6px">
-          Accepted: PDF, DOCX, TXT, PNG, JPG, ZIP, XLSX, PPTX
-        </p>
-        <hr>
-        <div class="flex items-center justify-between" style="margin-bottom:10px">
-          <div style="font-size:13px;font-weight:600;color:var(--text)">📂 Saved Attachments</div>
-          <button class="btn btn-ghost btn-sm" onclick="refreshAttachments()">↺ Refresh</button>
-        </div>
-        <div id="attachmentsList">
-          <div class="empty" style="padding:16px"><div class="empty-icon" style="font-size:24px">📂</div>No attachments saved yet</div>
-        </div>
-      </div>
       <div class="card">
         <div class="flex items-center justify-between" style="margin-bottom:14px">
           <div class="card-title" style="margin:0">✉️ Queue <span class="pill" id="contentPill">0</span></div>
           <div class="flex gap-2">
+            <button class="btn btn-ghost btn-sm" onclick="retryFailed()">↻ Retry Failed</button>
+            <button class="btn btn-ghost btn-sm" onclick="exportFailed()">⬇ Export Failed</button>
             <button class="btn btn-ghost btn-sm" onclick="resetQueue()">↺ Reset Statuses</button>
             <button class="btn btn-ghost btn-sm" onclick="clearContent()">Clear All</button>
           </div>
+        </div>
+        <!-- Status filter bar -->
+        <div class="flex gap-2" style="flex-wrap:wrap;margin-bottom:12px" id="queueFilterBar">
+          <button class="btn btn-ghost btn-sm" data-filter="all"     onclick="setQueueFilter('all')">All <span class="pill" id="filterCountAll">0</span></button>
+          <button class="btn btn-ghost btn-sm" data-filter="pending" onclick="setQueueFilter('pending')">⏳ Pending <span class="pill" id="filterCountPending">0</span></button>
+          <button class="btn btn-ghost btn-sm" data-filter="sent"    onclick="setQueueFilter('sent')">✅ Sent <span class="pill" id="filterCountSent">0</span></button>
+          <button class="btn btn-ghost btn-sm" data-filter="failed"  onclick="setQueueFilter('failed')">❌ Failed <span class="pill" id="filterCountFailed">0</span></button>
+          <button class="btn btn-ghost btn-sm" data-filter="skipped" onclick="setQueueFilter('skipped')">⏭ Skipped <span class="pill" id="filterCountSkipped">0</span></button>
         </div>
         <div class="table-wrap">
           <table>
@@ -584,6 +540,32 @@
         <div class="progress-bar" style="height:10px"><div class="progress-fill" id="campaignProgress" style="width:0%"></div></div>
         <div style="font-size:12px;font-family:var(--mono);color:var(--muted);margin-top:6px" id="campaignProgressLabel">0 / 0 — Idle</div>
       </div>
+
+      <!-- Download reports: full list and failed-only list -->
+      <div class="card">
+        <div class="card-title">📥 Download Reports</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:12px">
+          Export every email in the queue with its current status (<strong>PENDING</strong>, <strong>SENT</strong>, <strong>FAILED</strong>, <strong>SKIPPED</strong>),
+          or download only the failed emails with their error details.
+        </p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:12px;font-family:var(--mono);color:var(--muted);margin-bottom:12px" id="reportSummary">
+          <span>Total: <strong id="reportTotal" style="color:var(--text)">0</strong></span>
+          <span>·</span>
+          <span>Pending: <strong id="reportPending" style="color:#1565c0">0</strong></span>
+          <span>·</span>
+          <span>Sent: <strong id="reportSent" style="color:#388e3c">0</strong></span>
+          <span>·</span>
+          <span>Failed: <strong id="reportFailed" style="color:var(--accent)">0</strong></span>
+          <span>·</span>
+          <span>Skipped: <strong id="reportSkipped" style="color:#f57c00">0</strong></span>
+        </div>
+        <div class="flex gap-2" style="flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="exportFullReport()">📄 Download Full Report (CSV)</button>
+          <button class="btn btn-danger" onclick="exportFailed()">❌ Download Failed Only (CSV)</button>
+          <button class="btn btn-ghost" onclick="exportLog()">📋 Download Activity Log</button>
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-title">📋 Live Log</div>
         <div class="log-box" id="campaignLog"><span class="log-info">// Waiting to start...</span></div>
@@ -740,34 +722,6 @@ async function syncDailyCounts() {
 // ════════════════════════════════════════════
 // SENDERS
 // ════════════════════════════════════════════
-function addSender() {
-  const e = document.getElementById('newSenderEmail').value.trim();
-  const p = document.getElementById('newSenderPass').value.trim();
-  const n = document.getElementById('newSenderName').value.trim();
-  const l = parseInt(document.getElementById('newSenderLimit').value) || 100;
-  if (!e || !p) { toast('Email and password required', 'err'); return; }
-  if (senders.find(s => s.email === e)) { toast('Already added', 'err'); return; }
-  senders.push({ email:e, password:p, name:n||e.split('@')[0], dailyLimit:l, sentToday:0, status:'unverified' });
-  document.getElementById('newSenderEmail').value = '';
-  document.getElementById('newSenderPass').value = '';
-  document.getElementById('newSenderName').value = '';
-  renderSenders(); updateStats();
-  toast('Sender added', 'info');
-}
-
-async function verifySenderForm() {
-  const e = document.getElementById('newSenderEmail').value.trim();
-  const p = document.getElementById('newSenderPass').value.trim();
-  if (!e || !p) { toast('Fill email and password first', 'err'); return; }
-  toast(`Verifying ${e}...`, 'info');
-  const r = await api('/api/verify-sender', {
-    email: e, password: p,
-    host: document.getElementById('smtpHost').value,
-    port: document.getElementById('smtpPort').value
-  });
-  r.ok ? toast(`✅ ${e} verified!`, 'ok') : toast(`❌ ${r.error}`, 'err');
-}
-
 async function verifySender(idx) {
   const s = senders[idx];
   s.status = 'checking'; renderSenders();
@@ -833,27 +787,117 @@ async function loadSendersFromSheet() {
 function removeContent(idx) { emailQueue.splice(idx,1); renderContent(); updateStats(); }
 function clearContent() { if(confirm('Clear queue?')){ emailQueue=[]; renderContent(); updateStats(); sentTo=new Set(); } }
 function resetQueue() {
-  emailQueue.forEach(e=>e.status='pending');
+  emailQueue.forEach(e=>{ e.status='pending'; e.errorMsg=''; e.failedAt=''; e.sentBy=''; e.sentAt=''; });
   sentTo=new Set(); stats={sent:0,failed:0,skipped:0};
   renderContent(); updateStats(); updateProgress();
   toast('Queue reset','info');
 }
 
+// Reset only failed emails back to pending so they can be retried in the next campaign run
+function retryFailed() {
+  const failed = emailQueue.filter(e=>e.status==='failed');
+  if (!failed.length) { toast('No failed emails to retry', 'info'); return; }
+  failed.forEach(e=>{ e.status='pending'; e.errorMsg=''; e.failedAt=''; e.sentBy=''; });
+  stats.failed = Math.max(0, stats.failed - failed.length);
+  renderContent(); updateStats(); updateProgress();
+  toast(`${failed.length} failed email(s) reset to Pending`, 'ok');
+}
+
+// Export only failed emails with error detail as CSV
+function exportFailed() {
+  const failed = emailQueue.filter(e=>e.status==='failed');
+  if (!failed.length) { toast('No failed emails to export', 'info'); return; }
+  const header = 'To,Subject,Body,CC,ReplyTo,SentBy,FailedAt,Error';
+  const rows = failed.map(e => [
+    _csvCell(e.to),
+    _csvCell(e.subject),
+    _csvCell(e.body),
+    _csvCell(e.cc),
+    _csvCell(e.replyTo),
+    _csvCell(e.sentBy),
+    _csvCell(e.failedAt),
+    _csvCell(e.errorMsg)
+  ].join(','));
+  const stamp = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  dl(`failed-emails-${stamp}.csv`, [header, ...rows].join('\n'));
+  toast(`Exported ${failed.length} failed email(s)`, 'ok');
+}
+
+// Filter state for queue view
+let queueFilter = 'all';
+function setQueueFilter(f) {
+  queueFilter = f;
+  renderContent();
+}
+
 function renderContent() {
   const tbody = document.getElementById('contentTableBody');
-  if (!emailQueue.length) { tbody.innerHTML='<tr><td colspan="7" class="empty"><div class="empty-icon">📄</div>No emails in queue</td></tr>'; return; }
-  tbody.innerHTML = emailQueue.map((e,i) => `
+
+  // Update filter counts + total pill (always, even when list is empty)
+  const counts = { all: emailQueue.length, pending:0, sent:0, failed:0, skipped:0 };
+  emailQueue.forEach(e => { if (counts[e.status] !== undefined) counts[e.status]++; });
+  const countEls = {
+    all:     document.getElementById('filterCountAll'),
+    pending: document.getElementById('filterCountPending'),
+    sent:    document.getElementById('filterCountSent'),
+    failed:  document.getElementById('filterCountFailed'),
+    skipped: document.getElementById('filterCountSkipped'),
+  };
+  Object.keys(countEls).forEach(k => { if (countEls[k]) countEls[k].textContent = counts[k]; });
+
+  // Highlight active filter button
+  const bar = document.getElementById('queueFilterBar');
+  if (bar) {
+    bar.querySelectorAll('button[data-filter]').forEach(btn => {
+      const active = btn.dataset.filter === queueFilter;
+      btn.style.borderColor = active ? 'var(--accent)' : '';
+      btn.style.color       = active ? 'var(--accent)' : '';
+      btn.style.background  = active ? 'rgba(211,47,47,.05)' : '';
+    });
+  }
+
+  const contentCountEl = document.getElementById('contentCount');
+  if (contentCountEl) contentCountEl.textContent = emailQueue.length;
+  const pillEl = document.getElementById('contentPill');
+  if (pillEl) pillEl.textContent = emailQueue.length;
+
+  if (!emailQueue.length) {
+    tbody.innerHTML='<tr><td colspan="7" class="empty"><div class="empty-icon">📄</div>No emails in queue</td></tr>';
+    return;
+  }
+
+  // Build indexed list so row actions (remove) keep referencing the real queue index
+  const rows = emailQueue
+    .map((e,i) => ({ e, i }))
+    .filter(x => queueFilter === 'all' || x.e.status === queueFilter);
+
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty"><div class="empty-icon">🔍</div>No emails match "${queueFilter}"</td></tr>`;
+    return;
+  }
+
+  const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+  tbody.innerHTML = rows.map(({e,i}) => {
+    const tagClass = e.status==='sent'?'tag-green'
+                   : e.status==='failed'?'tag-red'
+                   : e.status==='skipped'?'tag-yellow'
+                   : 'tag-blue';
+    const statusLabel = e.status.toUpperCase();
+    const tooltip = e.status==='failed' && e.errorMsg
+      ? `title="Failed at ${esc(e.failedAt||'')} — ${esc(e.errorMsg)}"`
+      : '';
+    return `
     <tr>
-      <td style="font-family:var(--mono);font-size:12px">${e.to}</td>
-      <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.subject}</td>
-      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:12px">${e.body.substring(0,50)}...</td>
-      <td style="font-size:11px;font-family:var(--mono);color:${e.attachment?'var(--green)':'var(--muted)'};white-space:nowrap">${e.attachment?'📎 '+e.attachment:'—'}</td>
-      <td style="font-size:12px;font-family:var(--mono);color:var(--muted)">${e.sentBy||'—'}</td>
-      <td><span class="tag ${e.status==='sent'?'tag-green':e.status==='failed'?'tag-red':e.status==='skipped'?'tag-yellow':'tag-blue'}">${e.status.toUpperCase()}</span></td>
+      <td style="font-family:var(--mono);font-size:12px">${esc(e.to)}</td>
+      <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.subject)}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:12px">${esc((e.body||'').substring(0,50))}...</td>
+      <td style="font-size:11px;font-family:var(--mono);color:${e.attachment?'var(--green)':'var(--muted)'};white-space:nowrap">${e.attachment?'📎 '+esc(e.attachment):'—'}</td>
+      <td style="font-size:12px;font-family:var(--mono);color:var(--muted)">${esc(e.sentBy||'—')}</td>
+      <td><span class="tag ${tagClass}" ${tooltip} style="cursor:${e.status==='failed'&&e.errorMsg?'help':'default'}">${statusLabel}</span></td>
       <td><button class="btn btn-ghost btn-sm" onclick="removeContent(${i})">✕</button></td>
-    </tr>`).join('');
-  document.getElementById('contentCount').textContent = emailQueue.length;
-  document.getElementById('contentPill').textContent = emailQueue.length;
+    </tr>`;
+  }).join('');
 }
 
 
@@ -964,7 +1008,11 @@ async function processNext() {
     logC('success', `✅ Sent → ${item.to}`);
     addLogEntry('success', result.messageId||'', item.subject, sender.email, item.to);
   } else {
-    item.status='failed'; stats.failed++;
+    item.status='failed';
+    item.errorMsg = result.error || 'Unknown error';
+    item.failedAt = new Date().toLocaleTimeString();
+    item.sentBy = sender.email; // record which sender attempted
+    stats.failed++;
     if (result.limitReached) { logC('warn', `⏭ Daily limit reached for ${sender.email}`); }
     else if (result.isAuthError) { sender.status='error'; logC('error', `🔒 Auth failed for ${sender.email}`); }
     logC('error', `❌ Failed → ${item.to}: ${result.error}`);
@@ -1086,6 +1134,17 @@ function updateStats() {
   document.getElementById('dashSent').textContent=stats.sent;
   document.getElementById('dashSenders').textContent=senders.length;
   document.getElementById('dashTemplates').textContent=emailQueue.length;
+
+  // Live counts on the Campaign page's Download Reports card
+  const rCounts = { total: emailQueue.length, pending:0, sent:0, failed:0, skipped:0 };
+  emailQueue.forEach(e => { if (rCounts[e.status] !== undefined) rCounts[e.status]++; });
+  const setTxt = (id,v) => { const el=document.getElementById(id); if (el) el.textContent=v; };
+  setTxt('reportTotal',   rCounts.total);
+  setTxt('reportPending', rCounts.pending);
+  setTxt('reportSent',    rCounts.sent);
+  setTxt('reportFailed',  rCounts.failed);
+  setTxt('reportSkipped', rCounts.skipped);
+
   updateProgress();
 }
 
@@ -1121,7 +1180,32 @@ function parseCSVRow(row) {
 // ════════════════════════════════════════════
 function exportLog() { dl('mailforge-log.csv',['Time,From,To,Subject,Status,Detail',...activityLog.map(l=>`"${l.time}","${l.from}","${l.to}","${l.subject}","${l.status}","${l.detail}"`)].join('\n')); }
 function exportSenders() { dl('senders.csv',['Email,Name,DailyLimit,SentToday',...senders.map(s=>`"${s.email}","${s.name}",${s.dailyLimit},${s.sentToday}`)].join('\n')); }
-function exportQueue() { dl('queue.csv',['To,Subject,Body,CC,ReplyTo,Status,SentBy',...emailQueue.map(e=>`"${e.to}","${e.subject}","${e.body}","${e.cc}","${e.replyTo}","${e.status}","${e.sentBy}"`)].join('\n')); }
+
+// CSV-safe cell escape
+function _csvCell(v) { return `"${String(v==null?'':v).replace(/"/g,'""').replace(/\r?\n/g,' ')}"`; }
+
+// Full report: every email in the queue with its current status + all tracking fields.
+// Used by the "Download Full Report" button on the Campaign page and the generic queue export.
+function exportQueue() { exportFullReport(); }
+function exportFullReport() {
+  if (!emailQueue.length) { toast('Queue is empty — nothing to export', 'info'); return; }
+  const header = 'To,Subject,Body,CC,ReplyTo,Status,SentBy,SentAt,FailedAt,Error';
+  const rows = emailQueue.map(e => [
+    _csvCell(e.to),
+    _csvCell(e.subject),
+    _csvCell(e.body),
+    _csvCell(e.cc),
+    _csvCell(e.replyTo),
+    _csvCell((e.status||'').toUpperCase()),
+    _csvCell(e.sentBy),
+    _csvCell(e.sentAt),
+    _csvCell(e.failedAt),
+    _csvCell(e.errorMsg)
+  ].join(','));
+  const stamp = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  dl(`email-report-${stamp}.csv`, [header, ...rows].join('\n'));
+  toast(`Exported ${emailQueue.length} row(s) · full report`, 'ok');
+}
 function dl(name,text) { const a=document.createElement('a'); a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(text); a.download=name; a.click(); }
 function clearAll() { if(confirm('Clear ALL data?')){ senders=[]; emailQueue=[]; activityLog=[]; stats={sent:0,failed:0,skipped:0}; sentTo=new Set(); renderSenders(); renderContent(); renderLog(); updateStats(); } }
 
@@ -1145,7 +1229,7 @@ async function refreshCVFiles() {
   const container = document.getElementById('cvFilesList');
   container.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:8px 0">Loading...</div>';
   try {
-    const res = await fetch(`${getBackendUrl()}/api/cv-files`);
+    const res = await fetch(`${getBackendUrl()}/api/senders`);
     const data = await res.json();
     if (!data.ok || !data.files.length) {
       container.innerHTML = '<div class="empty" style="padding:16px"><div class="empty-icon" style="font-size:24px">📂</div>No saved files yet</div>';
@@ -1183,14 +1267,14 @@ async function uploadCVFile() {
   const content = await readFileAsText(file);
 
   try {
-    const res = await fetch(`${getBackendUrl()}/api/cv-files`, {
+    const res = await fetch(`${getBackendUrl()}/api/senders`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ filename: file.name, content }),
     });
     const data = await res.json();
     if (!data.ok) { toast(`Save failed: ${data.error}`, 'err'); return; }
-    toast(`✅ Saved as "${data.name}"`, 'ok');
+    toast(`✅ Saved "${data.name}" to Senders/`, 'ok');
     input.value = '';
     // Immediately import senders from the content
     importSendersFromCSV(content, data.name);
@@ -1204,7 +1288,7 @@ async function uploadCVFile() {
 async function loadSendersFromCVFile(name) {
   toast(`Loading ${name}...`, 'info');
   try {
-    const res = await fetch(`${getBackendUrl()}/api/cv-files/${encodeURIComponent(name)}`);
+    const res = await fetch(`${getBackendUrl()}/api/senders/${encodeURIComponent(name)}`);
     if (!res.ok) { toast(`File not found: ${name}`, 'err'); return; }
     const content = await res.text();
     importSendersFromCSV(content, name);
@@ -1214,9 +1298,9 @@ async function loadSendersFromCVFile(name) {
 }
 
 async function deleteCVFile(name) {
-  if (!confirm(`Delete "${name}" from CV Files?`)) return;
+  if (!confirm(`Delete "${name}" from Senders/?`)) return;
   try {
-    const res = await fetch(`${getBackendUrl()}/api/cv-files/${encodeURIComponent(name)}`, { method: 'DELETE' });
+    const res = await fetch(`${getBackendUrl()}/api/senders/${encodeURIComponent(name)}`, { method: 'DELETE' });
     const data = await res.json();
     if (data.ok) { toast(`Deleted "${name}"`, 'ok'); refreshCVFiles(); }
     else toast(`Delete failed: ${data.error}`, 'err');
@@ -1323,7 +1407,7 @@ function parseBulkFile(input) {
       preview.style.display = 'block';
       toast(`✅ Parsed ${rows.length} emails from "${file.name}"`, 'ok');
 
-      // Auto-save to CV Files folder so it survives refresh
+      // Auto-save to "Email queue/" folder so it survives refresh
       saveBulkCSVToFolder(file.name, e.target.result);
 
     } catch (err) {
@@ -1337,14 +1421,14 @@ function parseBulkFile(input) {
 
 async function saveBulkCSVToFolder(filename, content) {
   try {
-    const res = await fetch(`${getBackendUrl()}/api/cv-files`, {
+    const res = await fetch(`${getBackendUrl()}/api/queue-files`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ filename, content }),
     });
     const data = await res.json();
     if (data.ok) {
-      toast(`💾 Saved "${data.name}" to CV Files`, 'ok');
+      toast(`💾 Saved "${data.name}" to Email queue/`, 'ok');
       refreshBulkCSVList();
     }
   } catch (_) {}
@@ -1354,7 +1438,7 @@ function bulkAddToQueue() {
   if (!bulkRows.length) { toast('Upload a file first', 'err'); return; }
   let added = 0;
   bulkRows.forEach(r => {
-    emailQueue.push({ to: r.to, subject: r.subject, body: r.body, cc: r.cc, replyTo: r.replyTo, attachment: '', status: 'pending', sentBy: '', sentAt: '' });
+    emailQueue.push({ to: r.to, subject: r.subject, body: r.body, cc: r.cc, replyTo: r.replyTo, attachment: '', status: 'pending', sentBy: '', sentAt: '', errorMsg: '', failedAt: '' });
     added++;
   });
   renderContent(); updateStats();
@@ -1370,12 +1454,12 @@ function clearBulkFile() {
   document.getElementById('bulkError').style.display    = 'none';
 }
 
-// ── Saved CSV list (persists in CV Files folder) ──────────────────────────
+// ── Saved CSV list (persists in "Email queue" folder) ─────────────────────
 async function refreshBulkCSVList() {
   const container = document.getElementById('bulkCSVList');
   container.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:6px 0">Loading...</div>';
   try {
-    const res  = await fetch(`${getBackendUrl()}/api/cv-files`);
+    const res  = await fetch(`${getBackendUrl()}/api/queue-files`);
     const data = await res.json();
     if (!data.ok || !data.files.length) {
       container.innerHTML = '<div class="empty" style="padding:14px"><div class="empty-icon" style="font-size:22px">📄</div>No saved lists yet — upload a CSV above to save it automatically</div>';
@@ -1406,7 +1490,7 @@ async function refreshBulkCSVList() {
 async function loadBulkCSVFile(name) {
   toast(`Loading ${name}...`, 'info');
   try {
-    const res = await fetch(`${getBackendUrl()}/api/cv-files/${encodeURIComponent(name)}`);
+    const res = await fetch(`${getBackendUrl()}/api/queue-files/${encodeURIComponent(name)}`);
     if (!res.ok) { toast(`File not found: ${name}`, 'err'); return; }
     const csv = await res.text();
     const errBox  = document.getElementById('bulkError');
@@ -1473,9 +1557,9 @@ async function loadBulkCSVFile(name) {
 }
 
 async function deleteBulkCSVFile(name) {
-  if (!confirm(`Delete "${name}" from saved lists?`)) return;
+  if (!confirm(`Delete "${name}" from "Email queue/"?`)) return;
   try {
-    const res  = await fetch(`${getBackendUrl()}/api/cv-files/${encodeURIComponent(name)}`, { method: 'DELETE' });
+    const res  = await fetch(`${getBackendUrl()}/api/queue-files/${encodeURIComponent(name)}`, { method: 'DELETE' });
     const data = await res.json();
     if (data.ok) { toast(`Deleted "${name}"`, 'ok'); refreshBulkCSVList(); }
     else toast(`Delete failed: ${data.error}`, 'err');
@@ -1589,8 +1673,6 @@ updateStats();
 checkBackend();
 // Load saved CV files list on startup
 setTimeout(refreshCVFiles, 800);
-// Load saved attachments on startup
-setTimeout(refreshAttachments, 900);
 // Load saved bulk email CSV list on startup
 setTimeout(refreshBulkCSVList, 1000);
 </script>

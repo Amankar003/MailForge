@@ -14,11 +14,18 @@ const path = require('path');
 const app = express();
 const PORT = 3001;
 
-// ─── CV Files folder ──────────────────────────────────────────────────────────
-const CV_DIR = path.join(__dirname, 'CV Files');
-if (!fs.existsSync(CV_DIR)) {
-  fs.mkdirSync(CV_DIR, { recursive: true });
-  console.log(`📁  Created "CV Files" folder at ${CV_DIR}`);
+// ─── Senders folder (sender account CSVs) ────────────────────────────────────
+const SENDERS_DIR = path.join(__dirname, 'Senders');
+if (!fs.existsSync(SENDERS_DIR)) {
+  fs.mkdirSync(SENDERS_DIR, { recursive: true });
+  console.log(`👤  Created "Senders" folder at ${SENDERS_DIR}`);
+}
+
+// ─── Email queue folder (recipient list CSVs) ────────────────────────────────
+const QUEUE_DIR = path.join(__dirname, 'Email queue');
+if (!fs.existsSync(QUEUE_DIR)) {
+  fs.mkdirSync(QUEUE_DIR, { recursive: true });
+  console.log(`✉️  Created "Email queue" folder at ${QUEUE_DIR}`);
 }
 
 // ─── Attachments folder ───────────────────────────────────────────────────────
@@ -26,6 +33,59 @@ const ATTACH_DIR = path.join(__dirname, 'Attachments');
 if (!fs.existsSync(ATTACH_DIR)) {
   fs.mkdirSync(ATTACH_DIR, { recursive: true });
   console.log(`📎  Created "Attachments" folder at ${ATTACH_DIR}`);
+}
+
+// ─── Generic CSV folder helpers (shared by senders + queue endpoints) ────────
+function listCsvFiles(dir) {
+  return fs.readdirSync(dir)
+    .filter(f => !f.startsWith('.') && f.toLowerCase().endsWith('.csv'))
+    .map(f => {
+      const stat = fs.statSync(path.join(dir, f));
+      return { name: f, size: stat.size, modified: stat.mtime.toISOString() };
+    })
+    .sort((a, b) => new Date(b.modified) - new Date(a.modified));
+}
+
+function safeCsvName(filename) {
+  // Strip path separators and restrict to safe chars. Must end with .csv (case-insensitive).
+  const safe = path.basename(filename).replace(/[^a-zA-Z0-9._\- ]/g, '_');
+  return safe;
+}
+
+function writeCsvFile(dir, filename, content) {
+  const safe = safeCsvName(filename);
+  if (!safe.toLowerCase().endsWith('.csv')) {
+    return { ok: false, error: 'Only .csv files are allowed' };
+  }
+  fs.writeFileSync(path.join(dir, safe), content, 'utf8');
+  return { ok: true, name: safe };
+}
+
+function readCsvFile(dir, name, res) {
+  const safe = path.basename(name);
+  if (!safe.toLowerCase().endsWith('.csv')) {
+    return res.status(400).json({ ok: false, error: 'Only .csv files can be read here' });
+  }
+  const filePath = path.join(dir, safe);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ ok: false, error: 'File not found' });
+  try {
+    res.setHeader('Content-Type', 'text/plain');
+    res.send(fs.readFileSync(filePath, 'utf8'));
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+}
+
+function deleteCsvFile(dir, name, res) {
+  const safe = path.basename(name);
+  const filePath = path.join(dir, safe);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ ok: false, error: 'File not found' });
+  try {
+    fs.unlinkSync(filePath);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
 }
 
 app.use(cors({ origin: '*' }));
@@ -262,70 +322,56 @@ app.delete('/api/attachments/:name', (req, res) => {
   }
 });
 
-// ─── CV Files endpoints ───────────────────────────────────────────────────────
-
-// List all saved CSV files in the CV Files folder
-app.get('/api/cv-files', (req, res) => {
-  try {
-    const files = fs.readdirSync(CV_DIR)
-      .filter(f => f.toLowerCase().endsWith('.csv'))
-      .map(f => {
-        const stat = fs.statSync(path.join(CV_DIR, f));
-        return { name: f, size: stat.size, modified: stat.mtime.toISOString() };
-      })
-      .sort((a, b) => new Date(b.modified) - new Date(a.modified));
-    res.json({ ok: true, files });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
-  }
+// ─── Senders folder endpoints (sender account CSVs) ──────────────────────────
+// List all saved .csv files in Senders/
+app.get('/api/senders', (_req, res) => {
+  try { res.json({ ok: true, files: listCsvFiles(SENDERS_DIR) }); }
+  catch (err) { res.status(500).json({ ok: false, error: err.message }); }
 });
 
-// Save (upload) a CSV file to the CV Files folder
-// Body: { filename: 'senders.csv', content: '<csv text>' }
-app.post('/api/cv-files', (req, res) => {
+// Save (upload) a .csv file to Senders/
+// Body: { filename: 'sender.csv', content: '<csv text>' }
+app.post('/api/senders', (req, res) => {
   const { filename, content } = req.body;
-  if (!filename || !content) return res.status(400).json({ ok: false, error: 'Missing filename or content' });
-
-  // Sanitise filename — strip path separators
-  const safe = path.basename(filename).replace(/[^a-zA-Z0-9._\- ]/g, '_');
-  if (!safe.toLowerCase().endsWith('.csv')) {
-    return res.status(400).json({ ok: false, error: 'Only .csv files are allowed' });
-  }
-
+  if (!filename || content == null) return res.status(400).json({ ok: false, error: 'Missing filename or content' });
   try {
-    fs.writeFileSync(path.join(CV_DIR, safe), content, 'utf8');
-    res.json({ ok: true, name: safe });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
-  }
+    const r = writeCsvFile(SENDERS_DIR, filename, content);
+    if (!r.ok) return res.status(400).json(r);
+    res.json(r);
+  } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
 });
 
-// Read a specific saved CSV file
-app.get('/api/cv-files/:name', (req, res) => {
-  const safe = path.basename(req.params.name);
-  const filePath = path.join(CV_DIR, safe);
-  if (!fs.existsSync(filePath)) return res.status(404).json({ ok: false, error: 'File not found' });
-  try {
-    const content = fs.readFileSync(filePath, 'utf8');
-    res.setHeader('Content-Type', 'text/plain');
-    res.send(content);
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
-  }
+// Read a specific saved .csv file from Senders/
+app.get('/api/senders/:name', (req, res) => readCsvFile(SENDERS_DIR, req.params.name, res));
+
+// Delete a saved .csv file from Senders/
+app.delete('/api/senders/:name', (req, res) => deleteCsvFile(SENDERS_DIR, req.params.name, res));
+
+
+// ─── Email queue folder endpoints (recipient list CSVs) ──────────────────────
+// List all saved .csv files in "Email queue/"
+app.get('/api/queue-files', (_req, res) => {
+  try { res.json({ ok: true, files: listCsvFiles(QUEUE_DIR) }); }
+  catch (err) { res.status(500).json({ ok: false, error: err.message }); }
 });
 
-// Delete a saved CSV file
-app.delete('/api/cv-files/:name', (req, res) => {
-  const safe = path.basename(req.params.name);
-  const filePath = path.join(CV_DIR, safe);
-  if (!fs.existsSync(filePath)) return res.status(404).json({ ok: false, error: 'File not found' });
+// Save (upload) a .csv file to "Email queue/"
+// Body: { filename: 'email_receiver.csv', content: '<csv text>' }
+app.post('/api/queue-files', (req, res) => {
+  const { filename, content } = req.body;
+  if (!filename || content == null) return res.status(400).json({ ok: false, error: 'Missing filename or content' });
   try {
-    fs.unlinkSync(filePath);
-    res.json({ ok: true });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
-  }
+    const r = writeCsvFile(QUEUE_DIR, filename, content);
+    if (!r.ok) return res.status(400).json(r);
+    res.json(r);
+  } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
 });
+
+// Read a specific saved .csv file from "Email queue/"
+app.get('/api/queue-files/:name', (req, res) => readCsvFile(QUEUE_DIR, req.params.name, res));
+
+// Delete a saved .csv file from "Email queue/"
+app.delete('/api/queue-files/:name', (req, res) => deleteCsvFile(QUEUE_DIR, req.params.name, res));
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
