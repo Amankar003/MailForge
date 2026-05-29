@@ -93,6 +93,10 @@ app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static('.')); // Serve bulk-emailer.html from same folder
 
+app.get('/', (req, res) => {
+  res.redirect('/bulk-emailer.html');
+});
+
 // ─── In-memory state ──────────────────────────────────────────────────────────
 const transporterCache = {}; // email → nodemailer transporter
 const dailySentCounts = {};  // email → { date, count }
