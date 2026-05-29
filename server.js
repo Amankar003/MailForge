@@ -292,6 +292,7 @@ app.get('/api/attachments', (req, res) => {
   }
 });
 
+
 // Upload an attachment file (base64 encoded)
 // Body: { filename: 'resume.pdf', content_base64: '<base64 string>' }
 app.post('/api/attachments', (req, res) => {

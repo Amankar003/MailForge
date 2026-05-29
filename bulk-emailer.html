@@ -1165,6 +1165,8 @@ async function fetchSheetCSV(url) {
 // ════════════════════════════════════════════
 // CSV PARSER
 // ════════════════════════════════════════════
+
+// Parse a single row (used for sender CSVs that have no multi-line fields)
 function parseCSVRow(row) {
   const r=[]; let cur=''; let inQ=false;
   for (let i=0;i<row.length;i++) {
@@ -1173,6 +1175,74 @@ function parseCSVRow(row) {
     cur+=row[i];
   }
   r.push(cur); return r;
+}
+
+/**
+ * RFC 4180-compliant full CSV parser.
+ * Handles multi-line quoted fields (e.g. email bodies with newlines).
+ * Returns an array of rows; each row is an array of field strings.
+ */
+function parseCSVAll(text, sep) {
+  sep = sep || ',';
+  const rows = [];
+  let i = 0;
+  const n = text.length;
+
+  while (i < n) {
+    // Skip bare CRLF / LF between records (blank lines)
+    if (text[i] === '\r' && text[i + 1] === '\n') { i += 2; continue; }
+    if (text[i] === '\n') { i++; continue; }
+
+    const record = [];
+
+    while (i < n) {
+      let field = '';
+
+      if (text[i] === '"') {
+        // Quoted field — may span multiple lines
+        i++; // skip opening quote
+        while (i < n) {
+          if (text[i] === '"') {
+            if (i + 1 < n && text[i + 1] === '"') {
+              // Escaped double-quote ""  → single "
+              field += '"';
+              i += 2;
+            } else {
+              i++; // skip closing quote
+              break;
+            }
+          } else {
+            field += text[i];
+            i++;
+          }
+        }
+      } else {
+        // Unquoted field — ends at separator or newline
+        while (i < n && text[i] !== sep && text[i] !== '\r' && text[i] !== '\n') {
+          field += text[i];
+          i++;
+        }
+      }
+
+      record.push(field);
+
+      if (i < n && text[i] === sep) {
+        i++; // consume separator → read next field
+      } else {
+        // End of record
+        if (i < n && text[i] === '\r') i++;
+        if (i < n && text[i] === '\n') i++;
+        break;
+      }
+    }
+
+    // Skip empty phantom records
+    if (record.length > 0 && !(record.length === 1 && record[0] === '')) {
+      rows.push(record);
+    }
+  }
+
+  return rows;
 }
 
 // ════════════════════════════════════════════
@@ -1351,14 +1421,17 @@ function parseBulkFile(input) {
   reader.onload = function(e) {
     try {
       const text  = e.target.result;
-      const lines = text.trim().split(/\r?\n/);
-      if (lines.length < 2) throw new Error('File is empty or has only a header row.');
 
-      // Auto-detect separator from header line
-      const headerRaw = lines[0];
+      // Detect separator from the first line (header never has multi-line fields)
+      const firstNL = text.indexOf('\n');
+      const headerRaw = firstNL !== -1 ? text.substring(0, firstNL).replace(/\r$/, '') : text;
       const sep = headerRaw.includes('|') ? '|' : ',';
 
-      const cols = headerRaw.split(sep).map(c => c.replace(/"/g,'').trim().toLowerCase());
+      // Use RFC 4180 parser — correctly handles multi-line quoted bodies
+      const allRows = parseCSVAll(text, sep);
+      if (allRows.length < 2) throw new Error('File is empty or has only a header row.');
+
+      const cols = allRows[0].map(c => c.trim().toLowerCase());
       const toIdx      = cols.indexOf('to_email') !== -1 ? cols.indexOf('to_email') : cols.indexOf('to');
       const subIdx     = cols.indexOf('subject');
       const bodyIdx    = cols.indexOf('body');
@@ -1370,10 +1443,8 @@ function parseBulkFile(input) {
       if (bodyIdx === -1) throw new Error(`Missing "body" column. Found: ${cols.join(', ')}`);
 
       const rows = [];
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-        const parts = sep === ',' ? parseCSVRow(line) : line.split('|').map(c => c.replace(/^"|"$/g,'').trim());
+      for (let i = 1; i < allRows.length; i++) {
+        const parts   = allRows[i];
         const to      = (parts[toIdx]      || '').trim();
         const subject = (parts[subIdx]     || '').trim();
         const body    = (parts[bodyIdx]    || '').trim();
@@ -1499,12 +1570,16 @@ async function loadBulkCSVFile(name) {
     preview.style.display = 'none';
     bulkRows = [];
 
-    const lines = csv.trim().split(/\r?\n/);
-    if (lines.length < 2) { toast('File is empty', 'err'); return; }
+    // Detect separator from first line (header won't have multi-line fields)
+    const firstNL2 = csv.indexOf('\n');
+    const headerRaw2 = firstNL2 !== -1 ? csv.substring(0, firstNL2).replace(/\r$/, '') : csv;
+    const sep = headerRaw2.includes('|') ? '|' : ',';
 
-    const headerRaw = lines[0];
-    const sep = headerRaw.includes('|') ? '|' : ',';
-    const cols = headerRaw.split(sep).map(c => c.replace(/"/g,'').trim().toLowerCase());
+    // Use RFC 4180 parser — correctly handles multi-line quoted bodies
+    const allRows = parseCSVAll(csv, sep);
+    if (allRows.length < 2) { toast('File is empty', 'err'); return; }
+
+    const cols = allRows[0].map(c => c.trim().toLowerCase());
     const toIdx      = cols.indexOf('to_email') !== -1 ? cols.indexOf('to_email') : cols.indexOf('to');
     const subIdx     = cols.indexOf('subject');
     const bodyIdx    = cols.indexOf('body');
@@ -1518,10 +1593,8 @@ async function loadBulkCSVFile(name) {
     }
 
     const rows = [];
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
-      const parts   = sep === ',' ? parseCSVRow(line) : line.split('|').map(c => c.replace(/^"|"$/g,'').trim());
+    for (let i = 1; i < allRows.length; i++) {
+      const parts   = allRows[i];
       const to      = (parts[toIdx]      || '').trim();
       const subject = (parts[subIdx]     || '').trim();
       const body    = (parts[bodyIdx]    || '').trim();
