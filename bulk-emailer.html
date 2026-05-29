@@ -601,7 +601,7 @@
         <div class="card-title">🖥️ Backend Connection</div>
         <p style="font-size:13px;color:var(--muted);margin-bottom:12px">The Node.js backend must be running locally. Start it with <code>node server.js</code></p>
         <div class="input-row">
-          <div><label>BACKEND URL</label><input type="text" id="backendUrl" value="http://localhost:3001" /></div>
+          <div><label>BACKEND URL</label><input type="text" id="backendUrl" value="" placeholder="Auto: current deployed backend"  /></div>
           <div style="display:flex;align-items:flex-end"><button class="btn btn-primary" style="width:100%" onclick="checkBackend()">🔍 Test Connection</button></div>
         </div>
       </div>
@@ -665,7 +665,11 @@ let sentTo = new Set();
 let batchCount = 0;
 
 function getBackendUrl() { return document.getElementById('backendUrl').value.replace(/\/$/, '') || 'http://localhost:3001'; }
-
+function getBackendUrl() {
+  const input = document.getElementById('backendUrl');
+  const value = input ? input.value.trim().replace(/\/$/, '') : '';
+  return value || window.location.origin;
+}
 // ════════════════════════════════════════════
 // NAV
 // ════════════════════════════════════════════
